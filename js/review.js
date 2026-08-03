@@ -14,18 +14,20 @@
 import { Chess } from './chess.js';
 import { identifyOpening, isBookMove } from './openings.js';
 
+/* Colours are tuned for the cream canvas: saturated enough to read as chips
+ * with white symbols, dark enough to work as text on light surfaces. */
 export const CLASSIFICATIONS = {
-  brilliant: { label: 'Brilliant', symbol: '!!', color: '#26c2a3', rank: 0 },
-  great: { label: 'Great', symbol: '!', color: '#749bbf', rank: 1 },
-  best: { label: 'Best', symbol: '★', color: '#81b64c', rank: 2 },
-  excellent: { label: 'Excellent', symbol: '✓', color: '#81b64c', rank: 3 },
-  good: { label: 'Good', symbol: '✓', color: '#95b776', rank: 4 },
-  book: { label: 'Book', symbol: '▤', color: '#a88865', rank: 5 },
-  forced: { label: 'Forced', symbol: '⭢', color: '#9c9c9c', rank: 6 },
-  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f7c631', rank: 7 },
-  miss: { label: 'Miss', symbol: '⨯', color: '#ff7769', rank: 8 },
-  mistake: { label: 'Mistake', symbol: '?', color: '#ffa459', rank: 9 },
-  blunder: { label: 'Blunder', symbol: '??', color: '#fa412d', rank: 10 },
+  brilliant: { label: 'Brilliant', symbol: '!!', color: '#0d9488', rank: 0 },
+  great: { label: 'Great', symbol: '!', color: '#4a6fa5', rank: 1 },
+  best: { label: 'Best', symbol: '★', color: '#5c9c3f', rank: 2 },
+  excellent: { label: 'Excellent', symbol: '✓', color: '#5c9c3f', rank: 3 },
+  good: { label: 'Good', symbol: '✓', color: '#7fa05a', rank: 4 },
+  book: { label: 'Book', symbol: '▤', color: '#a08050', rank: 5 },
+  forced: { label: 'Forced', symbol: '⭢', color: '#8a8a8a', rank: 6 },
+  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#d9a400', rank: 7 },
+  miss: { label: 'Miss', symbol: '⨯', color: '#e2554a', rank: 8 },
+  mistake: { label: 'Mistake', symbol: '?', color: '#e07b39', rank: 9 },
+  blunder: { label: 'Blunder', symbol: '??', color: '#e0341f', rank: 10 },
 };
 
 export const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -108,9 +110,11 @@ function terminalEvaluation(board) {
   return { cp: 0, mate: null, lines: [], bestMove: null, terminal: 'draw' };
 }
 
-/* Analyse every position in the game. Yields progress through onProgress.
+/* Analyse every position in the game, fanned out across the engine pool so
+ * several positions run at once. Progress arrives out of order (that's the
+ * point); onProgress reports the completed count.
  * Returns an array of { cpWhite, mateWhite, bestMove, bestSan, pv, pvSan, alt } */
-export async function analysePositions(game, engine, opts = {}) {
+export async function analysePositions(game, pool, opts = {}) {
   const { depth = 14, multipv = 4, onProgress, shouldStop } = opts;
 
   const fens = [
@@ -118,18 +122,31 @@ export async function analysePositions(game, engine, opts = {}) {
     ...game.moves.map((m) => m.fenAfter),
   ];
 
+  // Terminal positions (mate / stalemate on the board) don't need a search;
+  // hand the pool a null so it skips the slot.
+  const boards = fens.map((fen) => new Chess(fen));
+  const jobs = fens.map((fen, i) => (boards[i].isGameOver() ? null : fen));
+
+  const raws = await pool.analyseAll(jobs, {
+    depth,
+    multipv,
+    shouldStop,
+    onResult: (index, result, done) => {
+      if (onProgress) onProgress({ done, total: fens.length });
+    },
+  });
+
   const results = [];
   for (let i = 0; i < fens.length; i++) {
-    if (shouldStop && shouldStop()) break;
     const fen = fens[i];
-    const board = new Chess(fen);
+    const board = boards[i];
     const toMove = board.turn;
 
     let raw;
-    if (board.isGameOver()) {
+    if (jobs[i] === null) {
       raw = terminalEvaluation(board);
-    } else {
-      const res = await engine.analyse(fen, { depth, multipv });
+    } else if (raws[i]) {
+      const res = raws[i];
       const top = res.lines[0] || { cp: 0, mate: null, pv: [] };
       raw = {
         cp: top.cp,
@@ -138,6 +155,10 @@ export async function analysePositions(game, engine, opts = {}) {
         bestMove: res.bestMove || (top.pv && top.pv[0]) || null,
         depth: res.depth,
       };
+    } else {
+      // Cancelled before this slot was reached: stop here and return the
+      // prefix that has real evaluations.
+      break;
     }
 
     const sign = toMove === 'w' ? 1 : -1;
@@ -172,8 +193,6 @@ export async function analysePositions(game, engine, opts = {}) {
       terminal: raw.terminal || null,
       depth: raw.depth || 0,
     });
-
-    if (onProgress) onProgress({ done: i + 1, total: fens.length });
   }
   return results;
 }

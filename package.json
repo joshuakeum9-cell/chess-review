@@ -8,5 +8,8 @@
     "test": "node test/perft.mjs",
     "start": "python -m http.server 8123",
     "vendor": "npm install stockfish.js@10.0.2 && node scripts/vendor.mjs"
+  },
+  "dependencies": {
+    "stockfish.js": "^10.0.2"
   }
 }

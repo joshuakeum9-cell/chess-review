@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
 import { Chess, parsePgn, splitPgnGames } from './chess.js';
-import { Engine } from './engine.js';
+import { EnginePool } from './engine.js';
 import {
   analysePositions,
   buildReport,
@@ -38,7 +38,7 @@ const state = {
   retry: null,
 };
 
-const engine = new Engine();
+const engine = new EnginePool();
 let engineReady = null;
 
 const board = new BoardView($('board'), { onSquareClick: handleSquareClick });
@@ -59,10 +59,13 @@ function ensureEngine() {
     engineReady = engine
       .init()
       .then(() => {
-        setEngineStatus(
-          engine.source === 'cdn' ? 'Engine: ready (CDN)' : 'Engine: ready (local)',
-          'is-ready'
-        );
+        const build =
+          engine.source === 'cdn'
+            ? 'CDN'
+            : engine.source.includes('wasm')
+              ? 'wasm'
+              : 'local';
+        setEngineStatus(`Engine: ready (${build} ×${engine.size})`, 'is-ready');
         return engine;
       })
       .catch((err) => {
@@ -500,12 +503,12 @@ function renderPhases(stats) {
 }
 
 function accuracyColour(value) {
-  if (value === null || value === undefined) return '#6b6862';
-  if (value >= 90) return '#81b64c';
-  if (value >= 80) return '#95b776';
-  if (value >= 70) return '#f7c631';
-  if (value >= 60) return '#ffa459';
-  return '#fa412d';
+  if (value === null || value === undefined) return '#9a9a9a';
+  if (value >= 90) return '#5c9c3f';
+  if (value >= 80) return '#7fa05a';
+  if (value >= 70) return '#d9a400';
+  if (value >= 60) return '#e07b39';
+  return '#e0341f';
 }
 
 function renderKeyMoments() {
@@ -699,8 +702,8 @@ function showBetterMove(reviewed) {
   const note = $('exploreNote');
   note.hidden = false;
   note.innerHTML =
-    `<strong style="color:#4a9c3a">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')} — the move to play. ` +
-    `<strong style="color:#6f9fc4">Blue</strong>: ${escapeHtml(reviewed.san)} — what you played. ` +
+    `<strong style="color:#16a34a">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')} — the move to play. ` +
+    `<strong style="color:#8b74d8">Lavender</strong>: ${escapeHtml(reviewed.san)} — what you played. ` +
     `Press → to go back to the game.`;
 }
 
@@ -718,10 +721,12 @@ function renderGraph() {
   });
 
   const ns = 'http://www.w3.org/2000/svg';
+  // Black's side of the graph is deep teal, White's area is white — same
+  // pairing as the report's accuracy tiles.
   const bg = document.createElementNS(ns, 'rect');
   bg.setAttribute('width', W);
   bg.setAttribute('height', H);
-  bg.setAttribute('fill', '#3a3733');
+  bg.setAttribute('fill', '#1a3a3a');
   svg.append(bg);
 
   const area = document.createElementNS(ns, 'path');
@@ -730,7 +735,7 @@ function renderGraph() {
     points.map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') +
     ` L ${W} ${H} Z`;
   area.setAttribute('d', d);
-  area.setAttribute('fill', '#e9e7e2');
+  area.setAttribute('fill', '#fffaf0');
   svg.append(area);
 
   const mid = document.createElementNS(ns, 'line');
@@ -738,7 +743,7 @@ function renderGraph() {
   mid.setAttribute('x2', W);
   mid.setAttribute('y1', H / 2);
   mid.setAttribute('y2', H / 2);
-  mid.setAttribute('stroke', '#8b8880');
+  mid.setAttribute('stroke', '#9a9a9a');
   mid.setAttribute('stroke-width', '1');
   mid.setAttribute('stroke-dasharray', '4 4');
   svg.append(mid);
@@ -759,7 +764,7 @@ function renderGraph() {
   cursor.setAttribute('id', 'graphCursor');
   cursor.setAttribute('y1', 0);
   cursor.setAttribute('y2', H);
-  cursor.setAttribute('stroke', '#81b64c');
+  cursor.setAttribute('stroke', '#ff4d8b');
   cursor.setAttribute('stroke-width', '2');
   svg.append(cursor);
 
@@ -864,7 +869,7 @@ async function playExploratoryMove(chess, move) {
 
   try {
     await ensureEngine();
-    const res = await engine.analyse(working.fen(), { depth: 12, multipv: 1 });
+    const res = await engine.analyseOne(working.fen(), { depth: 12, multipv: 1 });
     const top = res.lines[0];
     if (!top) return;
     const sign = working.turn === 'w' ? 1 : -1;
@@ -984,7 +989,7 @@ $('pgnFile').addEventListener('change', async (event) => {
 $('analyseBtn').addEventListener('click', runAnalysis);
 $('cancelBtn').addEventListener('click', () => {
   state.cancelRequested = true;
-  engine.stop();
+  engine.stopAll();
 });
 
 $('flipBtn').addEventListener('click', () => {

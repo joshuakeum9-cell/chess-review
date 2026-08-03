@@ -21,18 +21,14 @@ python -m http.server 8130
 
 Then open http://localhost:8130.
 
-### Optional: run fully offline
+### The engine
 
-By default Stockfish is pulled from a CDN the first time you analyse. To bundle
-it locally instead (also a good deal faster, since the local copy is the
-WebAssembly build rather than asm.js):
-
-```bash
-npm run vendor
-```
-
-That drops `stockfish.wasm.js` + `stockfish.wasm` into `vendor/`, which the app
-prefers automatically on the next load.
+The WebAssembly build of Stockfish ships in `vendor/` (GPL-3, see
+`vendor/LICENSE-NOTE.md`), so the app runs offline out of the box. Analysis is
+**parallel**: a pool of engine workers — one per CPU core, capped at six —
+each analyses a different position at the same time, which is what makes
+whole-game analysis fast. If `vendor/` is missing the app falls back to a CDN
+copy of the slower asm.js build; `npm run vendor` regenerates the local files.
 
 ### Tests
 
@@ -111,22 +107,22 @@ card back any time.
 
 ## Depth and speed
 
+Times below are for a ~45-move game on a modern laptop (6 parallel WASM
+workers). Longer games scale linearly — double the moves, double the time.
+
 | Depth | Roughly | Good for |
 | --- | --- | --- |
-| 10 | ~30s per game | a quick skim |
-| 14 | ~1-2 min | normal review, catches all real blunders |
-| 18 | ~4-6 min | studying a serious game |
-| 22 | ~15 min+ | correspondence, deep prep |
-
-Times are for the CDN asm.js build. Run `npm run vendor` and everything gets
-roughly three to five times faster.
+| 10 | ~5s per game | a quick skim |
+| 14 | ~15s | normal review, catches all real blunders |
+| 18 | ~1-2 min | studying a serious game |
+| 22 | ~5 min+ | correspondence, deep prep |
 
 ## Files
 
 | File | What it does |
 | --- | --- |
 | `js/chess.js` | Board, legal move generation, SAN, FEN, PGN parsing |
-| `js/engine.js` | Stockfish Web Worker, UCI protocol, promise API |
+| `js/engine.js` | Stockfish worker pool: N engines analysing N positions in parallel, UCI protocol, promise API |
 | `js/review.js` | Evaluation → win %, move classification, accuracy, feedback text |
 | `js/openings.js` | Opening book, used for naming and for "Book" moves |
 | `js/board.js` | SVG board: pieces, arrows, highlights, badges |

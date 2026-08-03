@@ -1,29 +1,60 @@
-/* engine.js — a small promise-based wrapper around Stockfish speaking UCI.
+/* engine.js — Stockfish in Web Workers, speaking UCI.
  *
- * The engine runs entirely in a Web Worker in your browser. Nothing is sent to
- * a server. It is loaded from, in order of preference:
- *   1. vendor/stockfish.wasm.js  (fast WebAssembly build, if you ran `npm run vendor`)
- *   2. a CDN copy of the asm.js build, pulled in through a blob shim
- *      (importScripts is allowed cross-origin, `new Worker(url)` is not)
+ * Two layers:
+ *   Engine     — one Stockfish instance in one Web Worker (promise API).
+ *   EnginePool — several Engines side by side. Each worker is single-threaded,
+ *                but N workers analyse N *different positions* at once, which
+ *                is what makes whole-game analysis fast: a 100-position game
+ *                on 4 workers runs ~4x quicker than one engine grinding
+ *                through the list.
+ *
+ * Everything runs in your browser. Nothing is sent to a server.
+ *
+ * Engine binary, in order of preference:
+ *   1. vendor/stockfish.wasm.js — WebAssembly build, shipped with the app,
+ *      3-5x faster than asm.js.
+ *   2. vendor/stockfish.js     — asm.js build, for browsers without wasm.
+ *   3. CDN asm.js build through a blob shim (importScripts is allowed
+ *      cross-origin, `new Worker(url)` is not). Last resort — e.g. someone
+ *      serving the app without the vendor directory.
  */
 
 const CDN_URL = 'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js';
-const LOCAL_CANDIDATES = ['vendor/stockfish.wasm.js', 'vendor/stockfish.js'];
 
-async function createWorker() {
-  for (const path of LOCAL_CANDIDATES) {
+const wasmSupported =
+  typeof WebAssembly === 'object' &&
+  WebAssembly.validate(
+    Uint8Array.of(0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00)
+  );
+
+let cachedSource = null;
+
+/* Work out once which engine build is available, then reuse the answer for
+ * every worker in the pool. */
+async function resolveSource() {
+  if (cachedSource) return cachedSource;
+  const candidates = [];
+  if (wasmSupported) candidates.push('vendor/stockfish.wasm.js');
+  candidates.push('vendor/stockfish.js');
+
+  for (const path of candidates) {
     try {
       const res = await fetch(path, { method: 'HEAD' });
-      if (res.ok) return { worker: new Worker(path), source: path };
+      if (res.ok) {
+        cachedSource = { kind: 'url', path };
+        return cachedSource;
+      }
     } catch {
-      /* not vendored locally — fall through to the CDN */
+      /* not served locally — keep looking */
     }
   }
+
   const shim = `importScripts(${JSON.stringify(CDN_URL)});`;
   const blobUrl = URL.createObjectURL(
     new Blob([shim], { type: 'application/javascript' })
   );
-  return { worker: new Worker(blobUrl), source: 'cdn' };
+  cachedSource = { kind: 'cdn', path: blobUrl };
+  return cachedSource;
 }
 
 export class Engine {
@@ -62,11 +93,11 @@ export class Engine {
     });
   }
 
-  async init({ hash = 64 } = {}) {
+  async init({ hash = 32 } = {}) {
     if (this.ready) return this;
-    const { worker, source } = await createWorker();
-    this.worker = worker;
-    this.source = source;
+    const source = await resolveSource();
+    this.worker = new Worker(source.path);
+    this.source = source.kind === 'cdn' ? 'cdn' : source.path;
 
     this.worker.onmessage = (e) => {
       const data = typeof e.data === 'string' ? e.data : e.data && e.data.data;
@@ -152,6 +183,97 @@ export class Engine {
     }
     this.worker.terminate();
     this.worker = null;
+    this.ready = false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* EnginePool                                                          */
+/* ------------------------------------------------------------------ */
+
+/* How many workers to run. One core is left for the page itself; capped
+ * because each engine carries its own memory and past ~6 the returns fade. */
+export function defaultPoolSize() {
+  const cores = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
+  return Math.max(2, Math.min(6, cores - 1));
+}
+
+export class EnginePool {
+  constructor(size = defaultPoolSize()) {
+    this.size = size;
+    this.engines = [];
+    this.ready = false;
+    this.source = null;
+  }
+
+  async init() {
+    if (this.ready) return this;
+    // Boot in parallel; if some workers fail (low memory), keep the ones
+    // that made it — one engine is enough to function.
+    const boots = Array.from({ length: this.size }, () =>
+      new Engine().init().then(
+        (engine) => engine,
+        () => null
+      )
+    );
+    this.engines = (await Promise.all(boots)).filter(Boolean);
+    if (!this.engines.length) {
+      throw new Error('No engine worker could be started');
+    }
+    this.size = this.engines.length;
+    this.source = this.engines[0].source;
+    this.ready = true;
+    return this;
+  }
+
+  async newGame() {
+    await Promise.all(this.engines.map((e) => e.newGame()));
+  }
+
+  /* Analyse one position on the first idle engine (used by explore mode). */
+  async analyseOne(fen, opts) {
+    const engine = this.engines.find((e) => !e._searching) || this.engines[0];
+    return engine.analyse(fen, opts);
+  }
+
+  /* Analyse many positions concurrently, preserving input order in the
+   * result. `jobs` is an array of FEN strings or nulls (null slots are
+   * skipped and come back as null — the caller fills them in itself).
+   *
+   * onResult(index, result, doneCount) fires as each position finishes —
+   * note: out of order, that's the point. */
+  async analyseAll(jobs, { depth, multipv, onResult, shouldStop } = {}) {
+    const results = new Array(jobs.length).fill(null);
+    let next = 0;
+    let done = 0;
+
+    const runner = async (engine) => {
+      for (;;) {
+        if (shouldStop && shouldStop()) return;
+        const index = next++;
+        if (index >= jobs.length) return;
+        if (jobs[index] === null) {
+          done++;
+          continue;
+        }
+        const result = await engine.analyse(jobs[index], { depth, multipv });
+        results[index] = result;
+        done++;
+        if (onResult) onResult(index, result, done);
+      }
+    };
+
+    await Promise.all(this.engines.map((engine) => runner(engine)));
+    return results;
+  }
+
+  stopAll() {
+    for (const engine of this.engines) engine.stop();
+  }
+
+  quit() {
+    for (const engine of this.engines) engine.quit();
+    this.engines = [];
     this.ready = false;
   }
 }
