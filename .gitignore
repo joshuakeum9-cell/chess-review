@@ -1,0 +1,10 @@
+# dependencies
+node_modules/
+
+# locally vendored Stockfish build (optional, recreate with `npm run vendor`;
+# the app falls back to the CDN copy when this is absent)
+vendor/
+
+# local tooling
+.claude/
+package-lock.json

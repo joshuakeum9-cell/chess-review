@@ -1,0 +1,12 @@
+{
+  "name": "chess-review",
+  "version": "1.0.0",
+  "description": "Post-game chess analysis with a Stockfish evaluation bar and move-by-move feedback.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node test/perft.mjs",
+    "start": "python -m http.server 8123",
+    "vendor": "npm install stockfish.js@10.0.2 && node scripts/vendor.mjs"
+  }
+}

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Game Review — chess analysis</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">♞</span>
+        <div>
+          <h1>Game Review</h1>
+          <p class="tagline">Stockfish runs in your browser. Nothing leaves your machine.</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="engineStatus" class="engine-status">Engine: idle</span>
+        <button id="newGameBtn" class="btn btn-ghost">Load a game</button>
+      </div>
+    </header>
+
+    <!-- ------------------------------------------------------------------ -->
+    <dialog id="loadDialog" class="load-dialog">
+      <form method="dialog" class="load-inner">
+        <h2>Load a game</h2>
+
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab is-active" data-tab="pgn">Paste PGN</button>
+          <button type="button" class="tab" data-tab="online">From Chess.com / Lichess</button>
+          <button type="button" class="tab" data-tab="file">Upload file</button>
+        </div>
+
+        <section class="tab-panel is-active" data-panel="pgn">
+          <textarea
+            id="pgnInput"
+            rows="9"
+            placeholder="Paste PGN here, e.g.&#10;&#10;[White &quot;You&quot;]&#10;[Black &quot;Opponent&quot;]&#10;&#10;1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 ..."
+          ></textarea>
+          <button type="button" id="loadPgnBtn" class="btn btn-primary">Load PGN</button>
+          <button type="button" id="loadSampleBtn" class="btn btn-ghost">Use a sample game</button>
+        </section>
+
+        <section class="tab-panel" data-panel="online">
+          <div class="field-row">
+            <select id="siteSelect" class="select">
+              <option value="chesscom">Chess.com</option>
+              <option value="lichess">Lichess</option>
+            </select>
+            <input id="usernameInput" class="input" type="text" placeholder="username" />
+            <button type="button" id="fetchGamesBtn" class="btn btn-primary">Fetch recent</button>
+          </div>
+          <p class="hint">Pulls your most recent public games straight from the site's API.</p>
+          <ul id="gameList" class="game-list"></ul>
+        </section>
+
+        <section class="tab-panel" data-panel="file">
+          <input id="pgnFile" type="file" accept=".pgn,.txt" class="input" />
+          <p class="hint">Any .pgn file. If it holds several games you'll get a list to pick from.</p>
+          <ul id="fileGameList" class="game-list"></ul>
+        </section>
+
+        <p id="loadError" class="error" hidden></p>
+        <button type="button" id="closeDialogBtn" class="btn btn-ghost close-x">Close</button>
+      </form>
+    </dialog>
+
+    <!-- ------------------------------------------------------------------ -->
+    <main class="layout">
+      <section class="board-column">
+        <div class="board-wrap">
+          <div class="evalbar" id="evalBar" title="Evaluation">
+            <div class="evalbar-black"></div>
+            <div class="evalbar-white" id="evalBarWhite"></div>
+            <span class="evalbar-label" id="evalBarLabel">0.00</span>
+          </div>
+          <div class="board-holder">
+            <div class="player-strip" id="topPlayer"><span class="pname">Black</span></div>
+            <div id="board" class="board"></div>
+            <div class="player-strip" id="bottomPlayer"><span class="pname">White</span></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="flipBtn" class="btn btn-icon" title="Flip board (f)">⇅</button>
+          <button id="firstBtn" class="btn btn-icon" title="Start (Home)">⏮</button>
+          <button id="prevBtn" class="btn btn-icon" title="Previous (←)">◀</button>
+          <button id="nextBtn" class="btn btn-icon" title="Next (→)">▶</button>
+          <button id="lastBtn" class="btn btn-icon" title="End (End)">⏭</button>
+          <button id="reportBtn" class="btn btn-ghost" hidden>Game Report</button>
+          <button id="exitExploreBtn" class="btn btn-ghost" hidden>Back to game</button>
+        </div>
+
+        <div class="retry-bar" id="retryBar" hidden>
+          <span class="retry-text" id="retryText">Your turn — find the better move.</span>
+          <button id="retryHintBtn" class="btn btn-ghost">Show solution</button>
+          <button id="retryExitBtn" class="btn btn-ghost">Cancel</button>
+        </div>
+
+        <div class="analysis-bar">
+          <label class="depth-field">
+            Depth
+            <select id="depthSelect" class="select select-sm">
+              <option value="10">10 — fast</option>
+              <option value="14" selected>14 — balanced</option>
+              <option value="18">18 — deep</option>
+              <option value="22">22 — very deep</option>
+            </select>
+          </label>
+          <button id="analyseBtn" class="btn btn-primary" disabled>Analyse game</button>
+          <button id="cancelBtn" class="btn btn-ghost" hidden>Stop</button>
+        </div>
+        <div class="progress" id="progressWrap" hidden>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <span class="progress-text" id="progressText"></span>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- -->
+      <section class="side-column">
+        <div class="panel report-panel" id="summaryPanel" hidden>
+          <div class="report-head">
+            <h2>Game Report</h2>
+            <span class="report-opening" id="openingName">—</span>
+          </div>
+
+          <div class="report-players">
+            <div class="rp">
+              <span class="avatar avatar-w">♔</span>
+              <span class="rp-name" id="whiteName">White</span>
+            </div>
+            <span class="rp-mid">Accuracy</span>
+            <div class="rp rp-right">
+              <span class="rp-name" id="blackName">Black</span>
+              <span class="avatar avatar-b">♚</span>
+            </div>
+          </div>
+          <div class="report-accuracy">
+            <span class="big-acc big-acc-w" id="whiteAccuracy">—</span>
+            <span class="big-acc big-acc-b" id="blackAccuracy">—</span>
+          </div>
+
+          <div class="phase-block" id="phaseBlock"></div>
+
+          <table class="class-table" id="classTable"></table>
+
+          <div class="key-moments" id="keyMoments" hidden>
+            <span class="km-label">Key moments</span>
+            <div class="km-list" id="keyMomentsList"></div>
+          </div>
+
+          <button id="startReviewBtn" class="btn btn-primary report-cta">
+            Start review
+          </button>
+        </div>
+
+        <div class="panel graph-panel" id="graphPanel" hidden>
+          <svg id="evalGraph" class="eval-graph" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div class="panel detail-panel" id="detailPanel">
+          <div class="detail-empty" id="detailEmpty">
+            <h2>No game loaded</h2>
+            <p>
+              Load a PGN or pull a game from Chess.com or Lichess, then hit
+              <strong>Analyse game</strong>. You'll get an evaluation bar, a
+              verdict on every move, and the line you should have played.
+            </p>
+            <button id="emptyLoadBtn" class="btn btn-primary">Load a game</button>
+          </div>
+          <div class="detail-body" id="detailBody" hidden>
+            <div class="detail-head">
+              <span class="detail-badge" id="detailBadge">★</span>
+              <div>
+                <div class="detail-title" id="detailTitle">Best</div>
+                <div class="detail-move" id="detailMove">1. e4</div>
+              </div>
+              <div class="detail-evals">
+                <span id="detailEval" class="detail-eval">+0.30</span>
+                <span class="detail-eval-caption">after</span>
+              </div>
+            </div>
+
+            <div class="coach">
+              <span class="coach-avatar" id="coachAvatar">♞</span>
+              <p class="coach-bubble" id="detailText"></p>
+            </div>
+
+            <div class="detail-line" id="detailLine" hidden>
+              <span class="line-label">Best line</span>
+              <span class="line-moves" id="detailLineMoves"></span>
+            </div>
+            <div class="detail-actions" id="detailActions" hidden></div>
+            <div class="explore-note" id="exploreNote" hidden></div>
+          </div>
+        </div>
+
+        <div class="panel moves-panel">
+          <div class="moves-head">
+            <span>Moves</span>
+            <span class="moves-hint">click to jump · ← → to step</span>
+          </div>
+          <div class="moves-scroll" id="movesScroll">
+            <ol class="moves" id="movesList"></ol>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
