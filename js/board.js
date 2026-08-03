@@ -48,7 +48,7 @@ export class BoardView {
     );
 
     const defs = el('defs');
-    defs.append(this._arrowHead('arrow-best', '#16a34a'), this._arrowHead('arrow-alt', '#8b74d8'));
+    defs.append(this._arrowHead('arrow-best', '#4a9c3a'), this._arrowHead('arrow-alt', '#4d7fa8'));
     this.svg.append(defs);
 
     container.innerHTML = '';

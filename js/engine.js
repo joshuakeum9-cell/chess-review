@@ -110,6 +110,12 @@ export class Engine {
     this._send('uci');
     await this._await('uciok', 90000);
     this._send(`setoption name Hash value ${hash}`);
+    // Stockfish defaults to a positive contempt, which deliberately skews the
+    // score in favour of whoever is to move so it plays on for a win. That is
+    // right for playing and wrong for analysis: the skew flips sign every ply,
+    // so it shows up as phantom losses on perfectly good moves.
+    this._send('setoption name Contempt value 0');
+    this._send('setoption name Analysis Contempt value Off');
     this._send('isready');
     await this._await('readyok');
     this.ready = true;
@@ -132,19 +138,39 @@ export class Engine {
 
   /* Analyse one position.
    * Returns { lines: [{ multipv, cp, mate, depth, pv:[uci] }], bestMove, depth }
-   * Scores are from the point of view of the side to move. */
-  async analyse(fen, { depth = 14, multipv = 2, onProgress } = {}) {
+   * Scores are from the point of view of the side to move.
+   *
+   * `searchmoves` restricts the search to the given root moves, which is how
+   * we score one specific move at the same depth as the rest.
+   *
+   * All returned lines come from a single search iteration. That matters: the
+   * engine reports candidate 1 at depth 16 before candidate 3 has climbed past
+   * depth 15, and scores from different iterations are not comparable. Mixing
+   * them makes sound moves look like mistakes. */
+  async analyse(fen, { depth = 14, multipv = 2, searchmoves = null, fresh = false, onProgress } = {}) {
     if (!this.ready) throw new Error('Engine not initialised');
     await this.setMultiPV(multipv);
 
-    const lines = new Map();
+    // Workers pick positions off a shared queue, so which positions warmed a
+    // given worker's transposition table depends on scheduling. Left alone,
+    // that makes the same game score differently run to run. Clearing the
+    // table first costs a little speed and buys reproducible verdicts.
+    if (fresh) {
+      this._send('ucinewgame');
+      this._send('isready');
+      await this._await('readyok');
+    }
+
+    // depth -> (multipv -> info)
+    const byDepth = new Map();
     let maxDepth = 0;
 
     const listener = (line) => {
       if (!line.startsWith('info ') || line.includes(' currmove')) return;
       const parsed = parseInfo(line);
       if (!parsed || parsed.cp === null) return;
-      lines.set(parsed.multipv, parsed);
+      if (!byDepth.has(parsed.depth)) byDepth.set(parsed.depth, new Map());
+      byDepth.get(parsed.depth).set(parsed.multipv, parsed);
       if (parsed.depth > maxDepth) {
         maxDepth = parsed.depth;
         if (onProgress) onProgress(parsed);
@@ -155,14 +181,27 @@ export class Engine {
     this._searching = true;
     try {
       this._send(`position fen ${fen}`);
-      this._send(`go depth ${depth}`);
+      const go = searchmoves && searchmoves.length
+        ? `go depth ${depth} searchmoves ${searchmoves.join(' ')}`
+        : `go depth ${depth}`;
+      this._send(go);
       const best = await this._await('bestmove', 180000);
       const bestMove = best.split(/\s+/)[1];
-      const ordered = [...lines.values()].sort((a, b) => a.multipv - b.multipv);
+
+      // Deepest iteration that reported the full set of candidates.
+      const depths = [...byDepth.keys()].sort((a, b) => b - a);
+      const widest = depths.reduce(
+        (most, d) => Math.max(most, byDepth.get(d).size),
+        0
+      );
+      const settled = depths.find((d) => byDepth.get(d).size === widest);
+      const chosen = settled === undefined ? new Map() : byDepth.get(settled);
+      const ordered = [...chosen.values()].sort((a, b) => a.multipv - b.multipv);
+
       return {
         lines: ordered,
         bestMove: bestMove === '(none)' ? null : bestMove,
-        depth: maxDepth,
+        depth: settled === undefined ? maxDepth : settled,
       };
     } finally {
       this._searching = false;
@@ -237,11 +276,11 @@ export class EnginePool {
   }
 
   /* Analyse many positions concurrently, preserving input order in the
-   * result. `jobs` is an array of FEN strings or nulls (null slots are
-   * skipped and come back as null — the caller fills them in itself).
+   * result. Each job is either null (skipped, comes back null) or an object
+   * { fen, searchmoves?, multipv? }.
    *
-   * onResult(index, result, doneCount) fires as each position finishes —
-   * note: out of order, that's the point. */
+   * onResult(index, result, doneCount) fires as each position finishes, out
+   * of order. That is the point. */
   async analyseAll(jobs, { depth, multipv, onResult, shouldStop } = {}) {
     const results = new Array(jobs.length).fill(null);
     let next = 0;
@@ -252,11 +291,18 @@ export class EnginePool {
         if (shouldStop && shouldStop()) return;
         const index = next++;
         if (index >= jobs.length) return;
-        if (jobs[index] === null) {
+        const job = jobs[index];
+        if (job === null || job === undefined) {
           done++;
           continue;
         }
-        const result = await engine.analyse(jobs[index], { depth, multipv });
+        const result = await engine.analyse(job.fen, {
+          depth,
+          multipv: job.multipv || multipv,
+          searchmoves: job.searchmoves || null,
+          // Whole-game analysis must be reproducible; see analyse().
+          fresh: true,
+        });
         results[index] = result;
         done++;
         if (onResult) onResult(index, result, done);

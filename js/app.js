@@ -110,6 +110,7 @@ function setGame(parsed) {
   $('reportBtn').hidden = true;
   $('retryBar').hidden = true;
   $('graphPanel').hidden = true;
+  $('enginePanel').hidden = true;
   $('detailEmpty').hidden = false;
   $('detailBody').hidden = true;
 
@@ -195,7 +196,7 @@ async function fetchOnlineGames() {
     }
   } catch (err) {
     list.innerHTML = '';
-    showError(`${err.message} — check the username, or paste the PGN instead.`);
+    showError(`${err.message}. Check the username, or paste the PGN instead.`);
   }
 }
 
@@ -246,15 +247,16 @@ async function runAnalysis() {
   try {
     await ensureEngine();
     await engine.newGame();
-    const depth = parseInt($('depthSelect').value, 10) || 14;
+    const depth = parseInt($('depthSelect').value, 10) || 16;
     state.depth = depth;
 
     const positions = await analysePositions(state.game, engine, {
       depth,
       // Wide enough that the move actually played is usually among the scored
-      // candidates, which is what keeps the "cost" figures honest.
+      // candidates, which is what keeps the "cost" figures honest. Anything
+      // that falls outside gets its own targeted search in pass two.
       multipv: 4,
-      onProgress: ({ done, total }) => setProgress(done, total),
+      onProgress: ({ done, total, phase }) => setProgress(done, total, phase),
       shouldStop: () => state.cancelRequested,
     });
 
@@ -289,10 +291,13 @@ function showTransientError(message) {
   setEngineStatus(`Engine: ${message}`, 'is-error');
 }
 
-function setProgress(done, total) {
+function setProgress(done, total, phase = 'positions') {
   const pct = total ? (done / total) * 100 : 0;
   $('progressFill').style.width = `${pct}%`;
-  $('progressText').textContent = `Analysing ${done} / ${total} positions`;
+  $('progressText').textContent =
+    phase === 'moves'
+      ? `Scoring your moves ${done} / ${total}`
+      : `Analysing ${done} / ${total} positions`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -356,8 +361,62 @@ function renderPosition() {
   }
 
   renderDetail(reviewed);
+  renderEngineLines();
   highlightCurrentMove();
   renderGraphCursor();
+}
+
+/* The engine's top candidate moves for the position on the board, with their
+ * evaluations. Lets you check the verdict rather than take it on trust. */
+function renderEngineLines() {
+  const panel = $('enginePanel');
+  const pos = state.positions && state.positions[state.ply];
+  if (!pos || !pos.candidates || !pos.candidates.length) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  $('engineDepth').textContent = `depth ${pos.depth}`;
+
+  const playedUci =
+    state.ply < state.game.moves.length ? state.game.moves[state.ply].uci : null;
+
+  const list = $('engineLines');
+  list.innerHTML = '';
+  for (const cand of pos.candidates) {
+    if (!cand.san) continue;
+    const li = document.createElement('li');
+    li.className = 'engine-line' + (cand.uci === playedUci ? ' is-played' : '');
+
+    const evalText = formatEval(cand.cpWhite, cand.mateWhite);
+    const ahead = cand.cpWhite > 20;
+    const behind = cand.cpWhite < -20;
+
+    const score = document.createElement('span');
+    score.className = 'engine-line-eval';
+    score.textContent = evalText;
+    score.style.background = ahead ? '#f0f0f0' : behind ? '#403d39' : '#5a564f';
+    score.style.color = ahead ? '#2a2724' : '#ececec';
+
+    const moves = document.createElement('span');
+    moves.className = 'engine-line-moves';
+    const rest = cand.lineSan.slice(1).join(' ');
+    moves.innerHTML = `<strong>${escapeHtml(cand.san)}</strong>${rest ? ' ' + escapeHtml(rest) : ''}`;
+
+    li.append(score, moves);
+    li.title = 'Play this line out on the board';
+    li.addEventListener('click', () => previewCandidate(cand));
+    list.append(li);
+  }
+}
+
+/* Click an engine line to walk into it from the current position. */
+async function previewCandidate(cand) {
+  if (!cand.uci || state.retry) return;
+  const chess = new Chess(fenAtPly(state.ply));
+  const legal = chess.moves({ verbose: true }).find((m) => m.uci === cand.uci);
+  if (!legal) return;
+  await playExploratoryMove(chess, legal);
 }
 
 function checkSquareFor(chess) {
@@ -494,22 +553,22 @@ function renderPhases(stats) {
     const row = document.createElement('div');
     row.className = 'phase-row';
     row.innerHTML = `
-      <span class="phase-num" style="color:${accuracyColour(w)}">${w === null ? '—' : w.toFixed(0)}</span>
+      <span class="phase-num" style="color:${accuracyColour(w)}">${w === null ? 'n/a' :w.toFixed(0)}</span>
       <span class="phase-track flip"><span class="phase-fill" style="width:${w || 0}%;background:${accuracyColour(w)}"></span></span>
       <span class="phase-name">${labels[phase]}</span>
       <span class="phase-track"><span class="phase-fill" style="width:${b || 0}%;background:${accuracyColour(b)}"></span></span>
-      <span class="phase-num" style="color:${accuracyColour(b)}">${b === null ? '—' : b.toFixed(0)}</span>`;
+      <span class="phase-num" style="color:${accuracyColour(b)}">${b === null ? 'n/a' :b.toFixed(0)}</span>`;
     block.append(row);
   }
 }
 
 function accuracyColour(value) {
-  if (value === null || value === undefined) return '#9a9a9a';
-  if (value >= 90) return '#5c9c3f';
-  if (value >= 80) return '#7fa05a';
-  if (value >= 70) return '#d9a400';
-  if (value >= 60) return '#e07b39';
-  return '#e0341f';
+  if (value === null || value === undefined) return '#6b6862';
+  if (value >= 90) return '#81b64c';
+  if (value >= 80) return '#95b776';
+  if (value >= 70) return '#f7c631';
+  if (value >= 60) return '#ffa459';
+  return '#fa412d';
 }
 
 function renderKeyMoments() {
@@ -528,7 +587,7 @@ function renderKeyMoments() {
     button.className = 'km-item';
     button.innerHTML =
       `<span class="km-chip" style="background:${meta.color}">${meta.symbol}</span>` +
-      `<span>${moveNo}${dots} ${escapeHtml(move.san)} — ${meta.label}</span>` +
+      `<span>${moveNo}${dots} ${escapeHtml(move.san)} · ${meta.label}</span>` +
       `<span class="km-cost">-${move.winLoss.toFixed(0)}%</span>`;
     button.addEventListener('click', () => {
       hideReport();
@@ -593,7 +652,7 @@ function renderDetail(reviewed) {
 
     const retry = document.createElement('button');
     retry.className = 'btn btn-primary';
-    retry.textContent = 'Retry — find the best move';
+    retry.textContent = 'Retry this move';
     retry.addEventListener('click', () => startRetry(reviewed));
 
     const show = document.createElement('button');
@@ -659,7 +718,7 @@ async function retryAttemptCost(reviewed, move) {
   }
 
   const res = await engine.analyseOne(after.fen(), {
-    depth: state.depth || 14,
+    depth: state.depth || 16,
     multipv: 1,
   });
   const top = res.lines[0];
@@ -692,8 +751,8 @@ async function handleRetryMove(chess, move) {
     retry.solved = true;
     bar.className = 'retry-bar is-right';
     $('retryText').textContent = isEngineChoice
-      ? `${move.san} — exactly. That's the engine's move.`
-      : `${move.san} works too — practically as strong as ${reviewed.bestSan}.`;
+      ? `${move.san} is exactly it. That is the engine's move.`
+      : `${move.san} works too. It is practically as strong as ${reviewed.bestSan}.`;
     retry.solvedSan = move.san;
     const played = new Chess(fenAtPly(reviewed.index));
     played.move(move.uci);
@@ -738,9 +797,9 @@ function showBetterMove(reviewed) {
   const note = $('exploreNote');
   note.hidden = false;
   note.innerHTML =
-    `<strong style="color:#16a34a">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')} — the move to play. ` +
-    `<strong style="color:#8b74d8">Lavender</strong>: ${escapeHtml(reviewed.san)} — what you played. ` +
-    `Press → to go back to the game.`;
+    `<strong style="color:#6ac04b">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')}, the move to play. ` +
+    `<strong style="color:#6f9fc4">Blue</strong>: ${escapeHtml(reviewed.san)}, what you played. ` +
+    `Press the right arrow key to go back to the game.`;
 }
 
 function renderGraph() {
@@ -757,12 +816,10 @@ function renderGraph() {
   });
 
   const ns = 'http://www.w3.org/2000/svg';
-  // Black's side of the graph is deep teal, White's area is white — same
-  // pairing as the report's accuracy tiles.
   const bg = document.createElementNS(ns, 'rect');
   bg.setAttribute('width', W);
   bg.setAttribute('height', H);
-  bg.setAttribute('fill', '#1a3a3a');
+  bg.setAttribute('fill', '#3a3733');
   svg.append(bg);
 
   const area = document.createElementNS(ns, 'path');
@@ -771,7 +828,7 @@ function renderGraph() {
     points.map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') +
     ` L ${W} ${H} Z`;
   area.setAttribute('d', d);
-  area.setAttribute('fill', '#fffaf0');
+  area.setAttribute('fill', '#e9e7e2');
   svg.append(area);
 
   const mid = document.createElementNS(ns, 'line');
@@ -779,7 +836,7 @@ function renderGraph() {
   mid.setAttribute('x2', W);
   mid.setAttribute('y1', H / 2);
   mid.setAttribute('y2', H / 2);
-  mid.setAttribute('stroke', '#9a9a9a');
+  mid.setAttribute('stroke', '#8b8880');
   mid.setAttribute('stroke-width', '1');
   mid.setAttribute('stroke-dasharray', '4 4');
   svg.append(mid);
@@ -800,7 +857,7 @@ function renderGraph() {
   cursor.setAttribute('id', 'graphCursor');
   cursor.setAttribute('y1', 0);
   cursor.setAttribute('y2', H);
-  cursor.setAttribute('stroke', '#ff4d8b');
+  cursor.setAttribute('stroke', '#81b64c');
   cursor.setAttribute('stroke-width', '2');
   svg.append(cursor);
 

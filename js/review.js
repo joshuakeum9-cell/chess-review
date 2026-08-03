@@ -14,20 +14,18 @@
 import { Chess } from './chess.js';
 import { identifyOpening, isBookMove } from './openings.js';
 
-/* Colours are tuned for the cream canvas: saturated enough to read as chips
- * with white symbols, dark enough to work as text on light surfaces. */
 export const CLASSIFICATIONS = {
-  brilliant: { label: 'Brilliant', symbol: '!!', color: '#0d9488', rank: 0 },
-  great: { label: 'Great', symbol: '!', color: '#4a6fa5', rank: 1 },
-  best: { label: 'Best', symbol: '★', color: '#5c9c3f', rank: 2 },
-  excellent: { label: 'Excellent', symbol: '✓', color: '#5c9c3f', rank: 3 },
-  good: { label: 'Good', symbol: '✓', color: '#7fa05a', rank: 4 },
-  book: { label: 'Book', symbol: '▤', color: '#a08050', rank: 5 },
-  forced: { label: 'Forced', symbol: '⭢', color: '#8a8a8a', rank: 6 },
-  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#d9a400', rank: 7 },
-  miss: { label: 'Miss', symbol: '⨯', color: '#e2554a', rank: 8 },
-  mistake: { label: 'Mistake', symbol: '?', color: '#e07b39', rank: 9 },
-  blunder: { label: 'Blunder', symbol: '??', color: '#e0341f', rank: 10 },
+  brilliant: { label: 'Brilliant', symbol: '!!', color: '#26c2a3', rank: 0 },
+  great: { label: 'Great', symbol: '!', color: '#749bbf', rank: 1 },
+  best: { label: 'Best', symbol: '★', color: '#81b64c', rank: 2 },
+  excellent: { label: 'Excellent', symbol: '✓', color: '#81b64c', rank: 3 },
+  good: { label: 'Good', symbol: '✓', color: '#95b776', rank: 4 },
+  book: { label: 'Book', symbol: '▤', color: '#a88865', rank: 5 },
+  forced: { label: 'Forced', symbol: '⭢', color: '#9c9c9c', rank: 6 },
+  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f7c631', rank: 7 },
+  miss: { label: 'Miss', symbol: '⨯', color: '#ff7769', rank: 8 },
+  mistake: { label: 'Mistake', symbol: '?', color: '#ffa459', rank: 9 },
+  blunder: { label: 'Blunder', symbol: '??', color: '#fa412d', rank: 10 },
 };
 
 export const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
@@ -94,12 +92,21 @@ function pvToSan(fen, pvUci, limit = 12) {
 function detectSacrifice(fenAfterMove, pvUci, mover) {
   const board = new Chess(fenAfterMove);
   const before = balance(board, mover);
-  let worst = before;
-  for (const uci of pvUci.slice(0, 8)) {
+
+  // Play the line out and measure material once it settles. Taking the worst
+  // point *during* the line would count every ordinary capture-recapture as a
+  // sacrifice, because you are transiently down a piece in the middle of one.
+  let played = 0;
+  for (const uci of pvUci.slice(0, 10)) {
     if (!board.move(uci)) break;
-    worst = Math.min(worst, balance(board, mover));
+    played++;
   }
-  return { given: before - worst, materialAfterMove: before };
+  const settled = balance(board, mover);
+  return {
+    given: before - settled,
+    materialAfterMove: before,
+    lineLength: played,
+  };
 }
 
 function terminalEvaluation(board) {
@@ -115,7 +122,7 @@ function terminalEvaluation(board) {
  * point); onProgress reports the completed count.
  * Returns an array of { cpWhite, mateWhite, bestMove, bestSan, pv, pvSan, alt } */
 export async function analysePositions(game, pool, opts = {}) {
-  const { depth = 14, multipv = 4, onProgress, shouldStop } = opts;
+  const { depth = 16, multipv = 4, onProgress, shouldStop } = opts;
 
   const fens = [
     game.moves.length ? game.moves[0].fenBefore : game.startFen,
@@ -125,14 +132,14 @@ export async function analysePositions(game, pool, opts = {}) {
   // Terminal positions (mate / stalemate on the board) don't need a search;
   // hand the pool a null so it skips the slot.
   const boards = fens.map((fen) => new Chess(fen));
-  const jobs = fens.map((fen, i) => (boards[i].isGameOver() ? null : fen));
+  const jobs = fens.map((fen, i) => (boards[i].isGameOver() ? null : { fen }));
 
   const raws = await pool.analyseAll(jobs, {
     depth,
     multipv,
     shouldStop,
     onResult: (index, result, done) => {
-      if (onProgress) onProgress({ done, total: fens.length });
+      if (onProgress) onProgress({ done, total: fens.length, phase: 'positions' });
     },
   });
 
@@ -190,11 +197,76 @@ export async function analysePositions(game, pool, opts = {}) {
         second && second.pv && second.pv[0]
           ? (new Chess(fen).move(second.pv[0]) || {}).san || null
           : null,
+      // Top candidates, in SAN, for the engine-lines panel.
+      candidates: raw.lines.slice(0, 3).map((l) => {
+        const probe = new Chess(fen);
+        const made = l.pv && l.pv[0] ? probe.move(l.pv[0]) : null;
+        return {
+          uci: l.pv && l.pv[0] ? l.pv[0] : null,
+          san: made ? made.san : null,
+          cp: l.cp,
+          mate: l.mate ?? null,
+          cpWhite: l.cp * sign,
+          mateWhite: l.mate === null || l.mate === undefined ? null : l.mate * sign,
+          lineSan: pvToSan(fen, l.pv || [], 6),
+        };
+      }),
+      // Score of the move actually played from this position, measured in the
+      // same search as the best move. Filled in below.
+      playedCpMover: null,
       terminal: raw.terminal || null,
       depth: raw.depth || 0,
     });
   }
+
+  await scorePlayedMoves(game, results, pool, { depth, onProgress, shouldStop });
   return results;
+}
+
+/* Second pass.
+ *
+ * A move's cost is only meaningful if the move you played and the move the
+ * engine wanted were scored by the SAME search of the SAME position. When the
+ * played move is one of the candidates pass 1 already scored, we have that for
+ * free. When it isn't, comparing against the next position's own search
+ * introduces a bias (that position is effectively searched one ply deeper),
+ * which makes ordinary moves look like mistakes.
+ *
+ * So: for every played move that pass 1 did not score, ask the engine to
+ * search that exact move, at the same depth, in the position it was played.
+ */
+async function scorePlayedMoves(game, positions, pool, { depth, onProgress, shouldStop }) {
+  const jobs = new Array(game.moves.length).fill(null);
+  let pending = 0;
+
+  for (let i = 0; i < game.moves.length; i++) {
+    const pos = positions[i];
+    if (!pos) continue;
+    const played = game.moves[i].uci;
+    const known = (pos.linesMover || []).find((l) => l.first === played);
+    if (known) {
+      pos.playedCpMover = known.cp;
+    } else if (!new Chess(pos.fen).isGameOver()) {
+      jobs[i] = { fen: pos.fen, searchmoves: [played], multipv: 1 };
+      pending++;
+    }
+  }
+
+  if (!pending) return;
+
+  const scored = await pool.analyseAll(jobs, {
+    depth,
+    multipv: 1,
+    shouldStop,
+    onResult: (index, result, done) => {
+      if (onProgress) onProgress({ done, total: jobs.length, phase: 'moves' });
+    },
+  });
+
+  for (let i = 0; i < scored.length; i++) {
+    const top = scored[i] && scored[i].lines[0];
+    if (top) positions[i].playedCpMover = top.cp;
+  }
 }
 
 /* Turn positions + moves into per-move verdicts and whole-game statistics. */
@@ -216,30 +288,36 @@ export function buildReport(game, positions) {
 
     const legalCount = new Chess(before.fen).moves().length;
     const isOnlyMove = legalCount === 1;
-    const playedBest =
+
+    // Both numbers come from the same search of the same position (pass 1 for
+    // candidates, pass 2 for everything else), so the difference between them
+    // is the real cost of the move rather than search noise.
+    const scoredInFrame = before.playedCpMover !== null && before.playedCpMover !== undefined;
+    const evalAfterMover = scoredInFrame ? before.playedCpMover : after.cpWhite * sign;
+
+    const isEngineFirstChoice =
       before.bestMove === move.uci ||
       (before.bestSan && before.bestSan === move.san);
-
-    // Searching position i and position i+1 separately introduces a bias: the
-    // later position is effectively looked at one ply deeper, so *every* move
-    // looks slightly bad. Where the move we played was one of the candidates
-    // the position-i search already scored, use that score instead — same
-    // search, same depth, directly comparable. Otherwise fall back to the
-    // position-i+1 score, where the bias is small next to a real error.
-    const sameSearch = (before.linesMover || []).find((l) => l.first === move.uci);
-    const evalAfterMover = sameSearch ? sameSearch.cp : after.cpWhite * sign;
+    // Positions often have several moves of identical value. If yours scores
+    // level with the engine's pick, it is a best move too, whichever one the
+    // engine happened to list first.
+    const tiedWithBest = scoredInFrame && before.cpMover - before.playedCpMover <= 3;
+    const playedBest = isEngineFirstChoice || tiedWithBest;
 
     const winBefore = winPercent(evalBeforeMover);
-    // Playing the engine's own first choice cannot, by definition, cost you
-    // anything.
     const winAfter = playedBest ? winBefore : winPercent(evalAfterMover);
     const loss = Math.max(0, winBefore - winAfter);
 
-    // How much worse is the second-best move? A big gap means this was the
-    // only move that held the position together.
+    // How much worse is the second-best move, and where would it have left
+    // you? A move is only "great" if the alternative actually surrenders the
+    // position. Being the top move while three others also win easily is
+    // simply "best".
     let altGap = null;
+    let altLeavesYouWorse = false;
     if (before.altCpMover !== null) {
-      altGap = winPercent(before.cpMover) - winPercent(before.altCpMover);
+      const altWin = winPercent(before.altCpMover);
+      altGap = winPercent(before.cpMover) - altWin;
+      altLeavesYouWorse = altWin <= 55;
     }
 
     const sac = detectSacrifice(move.fenAfter, after.pv, mover);
@@ -254,13 +332,24 @@ export function buildReport(game, positions) {
     } else if (isBookMove(sanList, i + 1)) {
       type = 'book';
     } else if (
-      loss <= 2 &&
+      // A real sacrifice: essentially the best move, still down material once
+      // the line settles, position still fine, and you were not already
+      // winning easily enough for it to be routine.
+      loss <= 1 &&
+      playedBest &&
       sac.given >= 2 &&
+      sac.lineLength >= 4 &&
       winAfter >= 45 &&
-      evalBeforeMover < 500
+      evalBeforeMover < 300
     ) {
       type = 'brilliant';
-    } else if (playedBest && altGap !== null && altGap >= 12 && loss <= 2) {
+    } else if (
+      playedBest &&
+      loss <= 2 &&
+      altGap !== null &&
+      altGap >= 12 &&
+      altLeavesYouWorse
+    ) {
       type = 'great';
     } else if (playedBest) {
       type = 'best';
@@ -461,38 +550,42 @@ function explain(ctx) {
 
   const line = bestLineSan && bestLineSan.length ? bestLineSan.slice(0, 5).join(' ') : null;
   const punish = replySan && replySan.length ? replySan.slice(0, 4).join(' ') : null;
+  // Only name an alternative when it is genuinely a different move from the
+  // one that was played. Suggesting the move you already made reads as a bug.
+  const other = bestSan && bestSan !== move.san ? bestSan : null;
+  const cost = loss >= 1 ? `${loss.toFixed(0)}%` : 'almost nothing';
 
   switch (type) {
     case 'book':
       return 'Still in known opening theory.';
     case 'forced':
-      return 'The only legal move — nothing to decide here.';
+      return 'The only legal move, so there was nothing to decide here.';
     case 'brilliant':
-      return `A sound sacrifice: you give up about ${sac.toFixed(0)} points of material and the position still favours you. Best line: ${line || move.san}.`;
+      return `A sound sacrifice. You give up about ${sac.toFixed(0)} points of material and the position still favours you${line ? `: ${line}` : '.'}`;
     case 'great':
-      return `The only move that holds — every alternative gives up roughly ${altGap.toFixed(0)}% of your expected score.`;
+      return `The only move that holds. Every alternative gives up roughly ${altGap.toFixed(0)}% of your expected score.`;
     case 'best':
       return line
         ? `The engine's top choice. It continues ${line}.`
         : "The engine's top choice.";
     case 'excellent':
-      return bestSan
-        ? `Nearly as good as ${bestSan}, and it changes almost nothing.`
-        : 'Nearly the best move.';
+      return other
+        ? `As good as makes no difference. ${other} scores fractionally higher.`
+        : 'Level with the best move.';
     case 'good':
-      return bestSan
-        ? `Perfectly playable. ${bestSan} was a touch sharper.`
+      return other
+        ? `Perfectly playable. ${other} was a touch sharper.`
         : 'Perfectly playable.';
     case 'inaccuracy':
-      return `This lets some of your advantage slip (about ${loss.toFixed(0)}% of expected score). ${bestSan ? `${bestSan} was cleaner` : ''}${line ? `: ${line}` : '.'}`;
+      return `This lets ${cost} of your expected score slip.${other ? ` ${other} was cleaner${line ? `: ${line}` : '.'}` : ''}`;
     case 'miss':
       return hadMate
-        ? `You had a forced mate here${mateBefore ? ` in ${Math.abs(mateBefore)}` : ''}. ${bestSan || ''}${line ? ` wins: ${line}` : ''}.`
-        : `You were clearly winning and this gives it up. ${bestSan ? `${bestSan} kept the win` : ''}${line ? `: ${line}` : '.'}`;
+        ? `You had a forced mate here${mateBefore ? ` in ${Math.abs(mateBefore)}` : ''}.${other ? ` ${other} wins${line ? `: ${line}` : '.'}` : ''}`
+        : `You were clearly winning and this gives it up.${other ? ` ${other} kept the win${line ? `: ${line}` : '.'}` : ''}`;
     case 'mistake':
-      return `${bestSan ? `${bestSan} was much better` : 'There was much better'}${line ? ` (${line})` : ''}. ${punish ? `Now ${punish} is strong for your opponent.` : ''}`;
+      return `${other ? `${other} was much better${line ? ` (${line})` : ''}.` : 'There was much better here.'}${punish ? ` Now ${punish} is strong for your opponent.` : ''}`;
     case 'blunder':
-      return `${describeLoss(evalAfterMover)} ${bestSan ? `${bestSan} was the move` : ''}${line ? ` — ${line}` : ''}. ${punish ? `Your opponent's best reply is ${punish}.` : ''}`;
+      return `${describeLoss(evalAfterMover)}${other ? ` ${other} was the move${line ? `: ${line}` : '.'}` : ''}${punish ? ` Your opponent's best reply is ${punish}.` : ''}`;
     default:
       return '';
   }

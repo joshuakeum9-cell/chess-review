@@ -49,12 +49,33 @@ discovered check, the lot), plus a few SAN and PGN round-trip checks.
 
 ## How a move gets its verdict
 
-Every position in the game is evaluated once at a fixed depth. Position *i* is
-"before move *i*"; position *i+1* is "after". The cost of a move is the drop
-between those two numbers.
+The cost of a move is the difference between what the engine wanted to play and
+what you actually played. Getting that number right is the whole game, and it is
+easy to get wrong, so the analysis runs in two passes:
 
-That drop is measured in **expected score** (win %), not raw centipawns. Losing
-100 centipawns when you are already up a queen barely matters; losing 100
+1. **Every position** is searched to a fixed depth with the top four candidate
+   moves scored.
+2. **Every played move that pass 1 did not already score** gets its own
+   targeted search, at the same depth, in the same position.
+
+The point is that both numbers always come from *the same search of the same
+position*. Comparing a position against the next one instead looks reasonable
+but is quietly biased: the later position is effectively searched a ply deeper,
+so ordinary moves come out looking like mistakes. Three rules keep the figures
+honest:
+
+- Candidate scores are only ever compared within one search iteration. The
+  engine reports candidate 1 at depth 16 while candidate 3 is still at depth
+  15, and mixing those is meaningless.
+- Moves that tie with the engine's pick are marked **Best** too. Positions
+  routinely have several equally good moves, and which one the engine lists
+  first is arbitrary.
+- The transposition table is cleared before each position, so the same game at
+  the same depth always produces the same review. Without this, results depend
+  on which worker happened to pick up which position.
+
+The drop itself is measured in **expected score** (win %), not raw centipawns.
+Losing 100 centipawns when you are already up a queen barely matters; losing 100
 centipawns in a level position is serious. The conversion is the standard
 sigmoid `50 + 50 * (2 / (1 + e^(-0.00368 · cp)) - 1)`.
 
@@ -64,8 +85,8 @@ With `wpl` = win percentage lost:
 | --- | --- |
 | **Forced** | Only one legal move existed |
 | **Book** | Still inside the bundled opening book |
-| **Brilliant !!** | A sound sacrifice — you gave up ≥ 2 points of material in the engine's own line, `wpl` ≤ 2, and you are still fine afterwards |
-| **Great !** | The only move that held; the second-best move loses ≥ 12% expected score |
+| **Brilliant !!** | A sound sacrifice. You gave up at least 2 points of material in the engine's own line, `wpl` ≤ 2, and you are still fine afterwards |
+| **Great !** | The only move that held: the second-best move loses at least 12% expected score *and* would have left you at 55% or worse. Being the top move while three others also win easily is just Best |
 | **Best ★** | The engine's first choice |
 | **Excellent** | `wpl` < 2 |
 | **Good** | `wpl` < 5 |
@@ -80,8 +101,10 @@ Accuracy per move is `103.1668 · e^(-0.04354 · wpl) - 3.1669`, clamped to
 sanity check, not a rating system.
 
 Sacrifices are detected using the engine's own principal variation rather than
-guesswork: play the best line out eight plies and see whether you end up down
-material while the evaluation still says you are fine.
+guesswork: play the line out and check the material balance once it *settles*.
+Measuring the worst point mid-line instead would flag every ordinary
+capture-recapture as a sacrifice, since you are transiently down a piece in the
+middle of one.
 
 ## Using the review
 
@@ -103,21 +126,28 @@ card back any time.
   misses gets you a hint.
 - **Show me &lt;move&gt;** draws two arrows instead: green for what you should
   have played, blue for what you did.
+- The **Engine lines** panel shows the top three candidate moves for the
+  position on the board with their evaluations, so you can check a verdict
+  rather than take it on trust. Click a line to play it out.
 - Click any piece on the board to play a move yourself and ask the engine what
-  it thinks — useful for "but what if I'd taken with the other rook?". **Back
-  to game** returns you to the review.
+  it thinks, which is useful for "but what if I'd taken with the other rook?".
+  **Back to game** returns you to the review.
 
 ## Depth and speed
 
-Times below are for a ~45-move game on a modern laptop (6 parallel WASM
-workers). Longer games scale linearly — double the moves, double the time.
+Times below are for a 45-move game on a modern laptop (6 parallel WASM
+workers). Longer games scale roughly linearly with the number of positions.
 
 | Depth | Roughly | Good for |
 | --- | --- | --- |
-| 10 | ~5s per game | a quick skim |
-| 14 | ~15s | normal review, catches all real blunders |
-| 18 | ~1-2 min | studying a serious game |
-| 22 | ~5 min+ | correspondence, deep prep |
+| 12 | ~5s per game | a quick skim |
+| 16 | ~15s | the default: reliable verdicts on every real error |
+| 20 | ~1 min | studying a serious game |
+| 24 | ~5 min+ | correspondence, deep prep |
+
+Depth matters for more than speed. At depth 12 the engine's idea of the best
+move genuinely changes from move to move, so verdicts wobble; 16 is where they
+settle down. Compare two reviews only if they were run at the same depth.
 
 ## Files
 

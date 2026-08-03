@@ -3,13 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Game Review — chess analysis</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-    />
+    <title>Game Review: chess analysis</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
@@ -99,7 +93,7 @@
         </div>
 
         <div class="retry-bar" id="retryBar" hidden>
-          <span class="retry-text" id="retryText">Your turn — find the better move.</span>
+          <span class="retry-text" id="retryText">Your turn. Find the better move.</span>
           <button id="retryHintBtn" class="btn btn-ghost">Show solution</button>
           <button id="retryExitBtn" class="btn btn-ghost">Cancel</button>
         </div>
@@ -108,10 +102,10 @@
           <label class="depth-field">
             Depth
             <select id="depthSelect" class="select select-sm">
-              <option value="10">10 — fast</option>
-              <option value="14" selected>14 — balanced</option>
-              <option value="18">18 — deep</option>
-              <option value="22">22 — very deep</option>
+              <option value="12">12 (fast)</option>
+              <option value="16" selected>16 (balanced)</option>
+              <option value="20">20 (deep)</option>
+              <option value="24">24 (very deep)</option>
             </select>
           </label>
           <button id="analyseBtn" class="btn btn-primary" disabled>Analyse game</button>
@@ -128,7 +122,7 @@
         <div class="panel report-panel" id="summaryPanel" hidden>
           <div class="report-head">
             <h2>Game Report</h2>
-            <span class="report-opening" id="openingName">—</span>
+            <span class="report-opening" id="openingName"></span>
           </div>
 
           <div class="report-players">
@@ -143,8 +137,8 @@
             </div>
           </div>
           <div class="report-accuracy">
-            <span class="big-acc big-acc-w" id="whiteAccuracy">—</span>
-            <span class="big-acc big-acc-b" id="blackAccuracy">—</span>
+            <span class="big-acc big-acc-w" id="whiteAccuracy">0.0</span>
+            <span class="big-acc big-acc-b" id="blackAccuracy">0.0</span>
           </div>
 
           <div class="phase-block" id="phaseBlock"></div>
@@ -200,6 +194,14 @@
             <div class="detail-actions" id="detailActions" hidden></div>
             <div class="explore-note" id="exploreNote" hidden></div>
           </div>
+        </div>
+
+        <div class="panel engine-panel" id="enginePanel" hidden>
+          <div class="engine-head">
+            <span>Engine lines</span>
+            <span class="engine-depth" id="engineDepth"></span>
+          </div>
+          <ol class="engine-lines" id="engineLines"></ol>
         </div>
 
         <div class="panel moves-panel">
