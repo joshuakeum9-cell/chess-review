@@ -247,6 +247,7 @@ async function runAnalysis() {
     await ensureEngine();
     await engine.newGame();
     const depth = parseInt($('depthSelect').value, 10) || 14;
+    state.depth = depth;
 
     const positions = await analysePositions(state.game, engine, {
       depth,
@@ -636,6 +637,37 @@ function endRetry() {
   renderPosition();
 }
 
+/* What did this attempt cost, compared with the engine's move? Returns win%
+ * lost, or null if we genuinely cannot tell. */
+async function retryAttemptCost(reviewed, move) {
+  const pos = state.positions[reviewed.index];
+  const bestWin = winPercent(pos.cpMover);
+
+  // Fast path: the position's own search already scored this move, so the
+  // two numbers come from the same search and compare exactly.
+  const line = (pos.linesMover || []).find((l) => l.first === move.uci);
+  if (line) return bestWin - winPercent(line.cp);
+
+  // Otherwise the move fell outside the candidate list — ask the engine
+  // rather than assuming it is bad.
+  const after = new Chess(fenAtPly(reviewed.index));
+  if (!after.move(move.uci)) return null;
+
+  if (after.isGameOver()) {
+    // Delivering mate is not a mistake; a stalemate throws the game away.
+    return after.isCheckmate() ? 0 : bestWin - 50;
+  }
+
+  const res = await engine.analyseOne(after.fen(), {
+    depth: state.depth || 14,
+    multipv: 1,
+  });
+  const top = res.lines[0];
+  if (!top) return null;
+  // top.cp is from the opponent's point of view in the new position.
+  return bestWin - winPercent(-top.cp);
+}
+
 async function handleRetryMove(chess, move) {
   const retry = state.retry;
   const reviewed = retry.reviewed;
@@ -648,13 +680,12 @@ async function handleRetryMove(chess, move) {
   // Anything nearly as good as the engine move also counts — there is often
   // more than one right answer.
   let goodEnough = isEngineChoice;
+  let cost = null;
   if (!goodEnough) {
-    const pos = state.positions[reviewed.index];
-    const line = (pos.linesMover || []).find((l) => l.first === move.uci);
-    if (line) {
-      goodEnough =
-        winPercent(pos.cpMover) - winPercent(line.cp) <= 2;
-    }
+    $('retryText').textContent = `Checking ${move.san}…`;
+    cost = await retryAttemptCost(reviewed, move);
+    if (state.retry !== retry) return; // they navigated away mid-check
+    goodEnough = cost !== null && cost <= 2;
   }
 
   if (goodEnough) {
@@ -663,6 +694,7 @@ async function handleRetryMove(chess, move) {
     $('retryText').textContent = isEngineChoice
       ? `${move.san} — exactly. That's the engine's move.`
       : `${move.san} works too — practically as strong as ${reviewed.bestSan}.`;
+    retry.solvedSan = move.san;
     const played = new Chess(fenAtPly(reviewed.index));
     played.move(move.uci);
     board.setPosition(played.fen(), {
@@ -672,10 +704,14 @@ async function handleRetryMove(chess, move) {
     });
   } else {
     bar.className = 'retry-bar is-wrong';
+    const costText =
+      cost === null ? '' : ` It gives up about ${Math.max(0, cost).toFixed(0)}% more.`;
     $('retryText').textContent =
       retry.tries >= 3
-        ? `${move.san} isn't it either. Hint: it starts on ${reviewed.bestMove ? reviewed.bestMove.slice(0, 2) : '…'}.`
-        : `${move.san} isn't the one. Try again.`;
+        ? `${move.san} isn't it either.${costText} Hint: the move starts on ${
+            reviewed.bestMove ? reviewed.bestMove.slice(0, 2) : '…'
+          }.`
+        : `${move.san} isn't the one.${costText} Try again.`;
     // reset the position so they can try again
     const fen = fenAtPly(reviewed.index);
     board.setPosition(fen, { checkSquare: checkSquareFor(new Chess(fen)) });

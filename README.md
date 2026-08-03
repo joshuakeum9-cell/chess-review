@@ -97,8 +97,10 @@ card back any time.
   them red, a brilliancy teal — and the badge pops on the destination square.
 - The eval graph marks every mistake, miss and blunder; click it to jump there.
 - On a bad move, **Retry** rewinds the board and makes you find the better move
-  yourself — any move within 2% of the engine's choice counts, and after three
-  misses you get a hint.
+  yourself. Any move within 2% of the engine's choice counts — if your attempt
+  wasn't among the candidates the search already scored, it gets evaluated on
+  the spot rather than assumed wrong, and you're told what it costs. Three
+  misses gets you a hint.
 - **Show me &lt;move&gt;** draws two arrows instead: green for what you should
   have played, blue for what you did.
 - Click any piece on the board to play a move yourself and ask the engine what
