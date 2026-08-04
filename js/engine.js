@@ -27,34 +27,72 @@ const wasmSupported =
     Uint8Array.of(0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00)
   );
 
-let cachedSource = null;
+/* Engine builds, best first.
+ *
+ * Stockfish 16 evaluates with a neural network (NNUE) rather than the
+ * hand-written heuristics of the 2018 build below it. That is the difference
+ * between "roughly right about tactics" and "right about quiet positional
+ * judgement too", which is exactly what move classification depends on. It
+ * costs a 38 MB network file, downloaded once and then cached.
+ *
+ * The older builds stay as fallbacks for browsers without WebAssembly SIMD,
+ * and for anyone serving the app without the vendor directory. */
+const BUILDS = [
+  {
+    id: 'sf16',
+    label: 'Stockfish 16 NNUE',
+    js: 'vendor/sf16/stockfish-nnue-16-single.js',
+    nnue: 'vendor/sf16/nn-5af11540bbfe.nnue',
+    needsWasm: true,
+  },
+  {
+    id: 'sf10-wasm',
+    label: 'Stockfish 10',
+    js: 'vendor/stockfish.wasm.js',
+    needsWasm: true,
+  },
+  { id: 'sf10-asm', label: 'Stockfish 10 (asm.js)', js: 'vendor/stockfish.js' },
+];
+
+const failedBuilds = new Set();
+let cachedBuild = null;
+let nnueWarmed = null;
+
+function cdnBuild() {
+  const shim = `importScripts(${JSON.stringify(CDN_URL)});`;
+  return {
+    id: 'cdn',
+    label: 'Stockfish 10 (CDN)',
+    js: URL.createObjectURL(new Blob([shim], { type: 'application/javascript' })),
+  };
+}
+
+/* Pull the network file once up front so the pool's workers all read it from
+ * the browser cache instead of racing for the same 38 MB. */
+function warmNnue(build) {
+  if (!build.nnue) return Promise.resolve();
+  if (!nnueWarmed) nnueWarmed = fetch(build.nnue).then((r) => r.arrayBuffer()).catch(() => null);
+  return nnueWarmed;
+}
 
 /* Work out once which engine build is available, then reuse the answer for
  * every worker in the pool. */
-async function resolveSource() {
-  if (cachedSource) return cachedSource;
-  const candidates = [];
-  if (wasmSupported) candidates.push('vendor/stockfish.wasm.js');
-  candidates.push('vendor/stockfish.js');
-
-  for (const path of candidates) {
+async function resolveBuild() {
+  if (cachedBuild && !failedBuilds.has(cachedBuild.id)) return cachedBuild;
+  for (const build of BUILDS) {
+    if (failedBuilds.has(build.id)) continue;
+    if (build.needsWasm && !wasmSupported) continue;
     try {
-      const res = await fetch(path, { method: 'HEAD' });
-      if (res.ok) {
-        cachedSource = { kind: 'url', path };
-        return cachedSource;
-      }
+      const res = await fetch(build.js, { method: 'HEAD' });
+      if (!res.ok) continue;
     } catch {
-      /* not served locally — keep looking */
+      continue; // not served locally, keep looking
     }
+    cachedBuild = build;
+    return build;
   }
-
-  const shim = `importScripts(${JSON.stringify(CDN_URL)});`;
-  const blobUrl = URL.createObjectURL(
-    new Blob([shim], { type: 'application/javascript' })
-  );
-  cachedSource = { kind: 'cdn', path: blobUrl };
-  return cachedSource;
+  cachedBuild = cdnBuild();
+  return cachedBuild;
 }
 
 export class Engine {
@@ -93,11 +131,13 @@ export class Engine {
     });
   }
 
-  async init({ hash = 32 } = {}) {
+  async init({ hash = 16, build = null } = {}) {
     if (this.ready) return this;
-    const source = await resolveSource();
-    this.worker = new Worker(source.path);
-    this.source = source.kind === 'cdn' ? 'cdn' : source.path;
+    const chosen = build || (await resolveBuild());
+    await warmNnue(chosen);
+    this.build = chosen;
+    this.worker = new Worker(chosen.js);
+    this.source = chosen.label;
 
     this.worker.onmessage = (e) => {
       const data = typeof e.data === 'string' ? e.data : e.data && e.data.data;
@@ -110,16 +150,53 @@ export class Engine {
     this._send('uci');
     await this._await('uciok', 90000);
     this._send(`setoption name Hash value ${hash}`);
-    // Stockfish defaults to a positive contempt, which deliberately skews the
-    // score in favour of whoever is to move so it plays on for a win. That is
-    // right for playing and wrong for analysis: the skew flips sign every ply,
-    // so it shows up as phantom losses on perfectly good moves.
-    this._send('setoption name Contempt value 0');
-    this._send('setoption name Analysis Contempt value Off');
+
+    if (chosen.nnue) {
+      // The network is off by default in this build and has to be switched on
+      // explicitly. Without this you get the classical evaluation, which is
+      // the whole thing we upgraded away from.
+      this._send('setoption name Use NNUE value true');
+      this._send('setoption name EvalFile value nn-5af11540bbfe.nnue');
+    } else {
+      // Stockfish 10 defaults to a positive contempt, which deliberately skews
+      // the score in favour of whoever is to move so it plays on for a win.
+      // Right for playing, wrong for analysis: the skew flips sign every ply
+      // and shows up as phantom losses on perfectly good moves. Later builds
+      // dropped the option entirely.
+      this._send('setoption name Contempt value 0');
+      this._send('setoption name Analysis Contempt value Off');
+    }
+
     this._send('isready');
-    await this._await('readyok');
+    await this._await('readyok', 120000);
+
+    if (chosen.nnue) {
+      // Confirm the network actually loaded rather than silently falling back.
+      const enabled = await this._confirmNnue();
+      if (!enabled) throw new Error('NNUE network failed to load');
+    }
+
     this.ready = true;
     return this;
+  }
+
+  /* Stockfish announces "info string NNUE evaluation enabled." once the
+   * network is in place. Run a token search and listen for it. */
+  async _confirmNnue() {
+    let seen = false;
+    const listener = (line) => {
+      if (line.includes('NNUE evaluation enabled')) seen = true;
+      if (line.includes('Use NNUE') && line.includes('classical')) seen = false;
+    };
+    this._listeners.add(listener);
+    try {
+      this._send('position startpos');
+      this._send('go depth 1');
+      await this._await('bestmove', 120000);
+    } finally {
+      this._listeners.delete(listener);
+    }
+    return seen;
   }
 
   async setMultiPV(n) {
@@ -151,10 +228,9 @@ export class Engine {
     if (!this.ready) throw new Error('Engine not initialised');
     await this.setMultiPV(multipv);
 
-    // Workers pick positions off a shared queue, so which positions warmed a
-    // given worker's transposition table depends on scheduling. Left alone,
-    // that makes the same game score differently run to run. Clearing the
-    // table first costs a little speed and buys reproducible verdicts.
+    // Whole-game analysis gets reproducibility from a fixed work split
+    // instead (see analyseAll), so this is only for one-off searches whose
+    // history should not leak in.
     if (fresh) {
       this._send('ucinewgame');
       this._send('isready');
@@ -247,22 +323,47 @@ export class EnginePool {
 
   async init() {
     if (this.ready) return this;
-    // Boot in parallel; if some workers fail (low memory), keep the ones
-    // that made it — one engine is enough to function.
-    const boots = Array.from({ length: this.size }, () =>
-      new Engine().init().then(
-        (engine) => engine,
-        () => null
-      )
-    );
-    this.engines = (await Promise.all(boots)).filter(Boolean);
-    if (!this.engines.length) {
-      throw new Error('No engine worker could be started');
+
+    // Try the best available build. If it cannot actually run here (no SIMD,
+    // network file missing, not enough memory) fall back a rung and retry
+    // rather than leaving the user with nothing.
+    for (let attempt = 0; attempt < BUILDS.length + 1; attempt++) {
+      const build = await resolveBuild();
+
+      // Each NNUE worker keeps its own copy of the 38 MB network, so the pool
+      // has to respect how much memory the machine actually has.
+      const roomy =
+        typeof navigator !== 'undefined' && (navigator.deviceMemory || 8) >= 8;
+      const size = build.nnue
+        ? Math.min(this.size, roomy ? 6 : 3)
+        : this.size;
+
+      let first;
+      try {
+        first = await new Engine().init({ build });
+      } catch {
+        failedBuilds.add(build.id);
+        cachedBuild = null;
+        continue;
+      }
+
+      const rest = await Promise.all(
+        Array.from({ length: size - 1 }, () =>
+          new Engine().init({ build }).then(
+            (engine) => engine,
+            () => null
+          )
+        )
+      );
+
+      this.engines = [first, ...rest.filter(Boolean)];
+      this.size = this.engines.length;
+      this.source = first.source;
+      this.ready = true;
+      return this;
     }
-    this.size = this.engines.length;
-    this.source = this.engines[0].source;
-    this.ready = true;
-    return this;
+
+    throw new Error('No engine worker could be started');
   }
 
   async newGame() {
@@ -283,14 +384,30 @@ export class EnginePool {
    * of order. That is the point. */
   async analyseAll(jobs, { depth, multipv, onResult, shouldStop } = {}) {
     const results = new Array(jobs.length).fill(null);
-    let next = 0;
     let done = 0;
 
-    const runner = async (engine) => {
-      for (;;) {
+    /* Work is split up front rather than pulled off a shared queue.
+     *
+     * That matters for two reasons. A worker keeps its transposition table
+     * between searches, so neighbouring positions in the same game make each
+     * other much cheaper: handing each worker a contiguous run of the game
+     * rather than whatever it grabs next is a large speed win. And because the
+     * split is fixed, every worker sees the same positions in the same order
+     * on every run, so the review is reproducible without having to throw the
+     * table away each time.
+     *
+     * Blocks are interleaved so no single worker ends up with the whole
+     * middlegame, which is where the slow positions live. */
+    const workers = this.engines.length;
+    const BLOCK = 4;
+    const assignments = Array.from({ length: workers }, () => []);
+    for (let i = 0; i < jobs.length; i++) {
+      assignments[Math.floor(i / BLOCK) % workers].push(i);
+    }
+
+    const runner = async (engine, indices) => {
+      for (const index of indices) {
         if (shouldStop && shouldStop()) return;
-        const index = next++;
-        if (index >= jobs.length) return;
         const job = jobs[index];
         if (job === null || job === undefined) {
           done++;
@@ -300,8 +417,6 @@ export class EnginePool {
           depth,
           multipv: job.multipv || multipv,
           searchmoves: job.searchmoves || null,
-          // Whole-game analysis must be reproducible; see analyse().
-          fresh: true,
         });
         results[index] = result;
         done++;
@@ -309,7 +424,9 @@ export class EnginePool {
       }
     };
 
-    await Promise.all(this.engines.map((engine) => runner(engine)));
+    await Promise.all(
+      this.engines.map((engine, i) => runner(engine, assignments[i]))
+    );
     return results;
   }
 

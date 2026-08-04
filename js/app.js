@@ -59,13 +59,7 @@ function ensureEngine() {
     engineReady = engine
       .init()
       .then(() => {
-        const build =
-          engine.source === 'cdn'
-            ? 'CDN'
-            : engine.source.includes('wasm')
-              ? 'wasm'
-              : 'local';
-        setEngineStatus(`Engine: ready (${build} ×${engine.size})`, 'is-ready');
+        setEngineStatus(`${engine.source} ×${engine.size}`, 'is-ready');
         return engine;
       })
       .catch((err) => {
@@ -247,15 +241,16 @@ async function runAnalysis() {
   try {
     await ensureEngine();
     await engine.newGame();
-    const depth = parseInt($('depthSelect').value, 10) || 16;
+    const depth = parseInt($('depthSelect').value, 10) || 12;
     state.depth = depth;
 
     const positions = await analysePositions(state.game, engine, {
       depth,
-      // Wide enough that the move actually played is usually among the scored
-      // candidates, which is what keeps the "cost" figures honest. Anything
-      // that falls outside gets its own targeted search in pass two.
-      multipv: 4,
+      // Widening the search is by far the most expensive knob with NNUE: at a
+      // given depth, four lines cost roughly four times one. Three lines is
+      // enough to name the alternatives and spot an only-move, and anything
+      // that falls outside gets a cheap targeted search in pass two instead.
+      multipv: 3,
       onProgress: ({ done, total, phase }) => setProgress(done, total, phase),
       shouldStop: () => state.cancelRequested,
     });

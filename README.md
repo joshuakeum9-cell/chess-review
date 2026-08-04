@@ -23,12 +23,25 @@ Then open http://localhost:8130.
 
 ### The engine
 
-The WebAssembly build of Stockfish ships in `vendor/` (GPL-3, see
-`vendor/LICENSE-NOTE.md`), so the app runs offline out of the box. Analysis is
-**parallel**: a pool of engine workers — one per CPU core, capped at six —
-each analyses a different position at the same time, which is what makes
-whole-game analysis fast. If `vendor/` is missing the app falls back to a CDN
-copy of the slower asm.js build; `npm run vendor` regenerates the local files.
+**Stockfish 16 with NNUE**, vendored in `vendor/sf16/` (GPL-3, see
+`vendor/LICENSE-NOTE.md`), so the app runs offline out of the box. NNUE means
+the evaluation is a neural network rather than hand-written heuristics, which
+matters most for quiet positional judgement: whether a sacrifice is really
+sound, whether a king is really unsafe. That is exactly what move
+classification rests on.
+
+The network is a 38 MB file, fetched once on first use and then served from the
+browser cache. It is loaded up front and shared, so the pool's workers do not
+each pull their own copy.
+
+Analysis is **parallel**: a pool of workers, one per CPU core (capped at six,
+or three on a low-memory device, because each NNUE worker holds its own copy of
+the network), each analysing different positions at the same time.
+
+Stockfish 10 stays in `vendor/` as a fallback for browsers without WebAssembly
+SIMD, with a CDN copy behind that. If the NNUE build cannot start, the app
+drops down a rung automatically rather than failing. `npm run vendor`
+regenerates all of it.
 
 ### Tests
 
@@ -70,9 +83,12 @@ honest:
 - Moves that tie with the engine's pick are marked **Best** too. Positions
   routinely have several equally good moves, and which one the engine lists
   first is arbitrary.
-- The transposition table is cleared before each position, so the same game at
-  the same depth always produces the same review. Without this, results depend
-  on which worker happened to pick up which position.
+- Work is split across the pool up front rather than pulled off a shared
+  queue, so every worker sees the same positions in the same order on every
+  run and the same game at the same depth always produces the same review.
+  (Letting workers grab whatever is next means their transposition tables get
+  warmed differently each time, and the same game scores differently run to
+  run.)
 
 The drop itself is measured in **expected score** (win %), not raw centipawns.
 Losing 100 centipawns when you are already up a queen barely matters; losing 100
@@ -135,19 +151,27 @@ card back any time.
 
 ## Depth and speed
 
-Times below are for a 45-move game on a modern laptop (6 parallel WASM
+Times below are for a 45-move game on a modern laptop (6 parallel NNUE
 workers). Longer games scale roughly linearly with the number of positions.
 
 | Depth | Roughly | Good for |
 | --- | --- | --- |
-| 12 | ~5s per game | a quick skim |
-| 16 | ~15s | the default: reliable verdicts on every real error |
-| 20 | ~1 min | studying a serious game |
-| 24 | ~5 min+ | correspondence, deep prep |
+| 10 | ~20s per game | a quick skim |
+| 12 | ~30s | the default |
+| 16 | ~90s | studying a serious game |
+| 20 | ~5 min+ | correspondence, deep prep |
 
-Depth matters for more than speed. At depth 12 the engine's idea of the best
-move genuinely changes from move to move, so verdicts wobble; 16 is where they
-settle down. Compare two reviews only if they were run at the same depth.
+A neural evaluation costs far more per node than the old hand-written one, so
+these are slower than the numbers this app used to post. They are also worth
+more: NNUE at depth 12 is a better judge of a position than the previous engine
+was at depth 16, which is the trade being made.
+
+Widening the search is the expensive knob, not deepening it. At a given depth,
+scoring four candidate lines costs roughly four times scoring one, which is why
+pass 1 asks for only three and pass 2 uses cheap single-move searches for
+everything else.
+
+Compare two reviews only if they were run at the same depth.
 
 ## Files
 

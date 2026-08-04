@@ -122,7 +122,7 @@ function terminalEvaluation(board) {
  * point); onProgress reports the completed count.
  * Returns an array of { cpWhite, mateWhite, bestMove, bestSan, pv, pvSan, alt } */
 export async function analysePositions(game, pool, opts = {}) {
-  const { depth = 16, multipv = 4, onProgress, shouldStop } = opts;
+  const { depth = 12, multipv = 3, onProgress, shouldStop } = opts;
 
   const fens = [
     game.moves.length ? game.moves[0].fenBefore : game.startFen,
