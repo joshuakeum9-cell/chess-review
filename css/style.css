@@ -647,6 +647,17 @@ textarea {
 /* ---------------------------------------------------------------- detail */
 .detail-panel {
   padding: 14px 16px;
+  /* The verdict card grows and shrinks with its content: bad moves add a best
+     line and two action buttons, long explanations wrap further. Left to
+     itself that shoves every panel below it up and down as you step through
+     the game. Reserve the room instead so stepping moves nothing but the
+     board. */
+  min-height: 268px;
+}
+@media (max-width: 980px) {
+  .detail-panel {
+    min-height: 0;
+  }
 }
 .detail-empty h2 {
   margin: 4px 0 8px;
@@ -837,6 +848,17 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Room for three lines, held whether or not there are three to show, so the
+     panels below do not move as you step through the game. */
+  min-height: 104px;
+  box-sizing: content-box;
+}
+.engine-line.is-idle {
+  cursor: default;
+  color: var(--text-dim);
+}
+.engine-line.is-idle:hover {
+  background: none;
 }
 .engine-line {
   display: flex;

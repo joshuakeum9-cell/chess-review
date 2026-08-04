@@ -366,11 +366,27 @@ function renderPosition() {
 function renderEngineLines() {
   const panel = $('enginePanel');
   const pos = state.positions && state.positions[state.ply];
-  if (!pos || !pos.candidates || !pos.candidates.length) {
+  if (!pos) {
     panel.hidden = true;
     return;
   }
   panel.hidden = false;
+
+  // A finished position has no moves to rank. Say so rather than removing the
+  // panel, which would pull everything below it up the page.
+  if (!pos.candidates || !pos.candidates.length) {
+    const board = new Chess(pos.fen);
+    $('engineDepth').textContent = '';
+    $('engineLines').innerHTML = `<li class="engine-line is-idle">${
+      board.isCheckmate()
+        ? 'Checkmate. No moves to rank.'
+        : board.isStalemate()
+          ? 'Stalemate. No moves to rank.'
+          : 'Game over. No moves to rank.'
+    }</li>`;
+    return;
+  }
+
   $('engineDepth').textContent = `depth ${pos.depth}`;
 
   const playedUci =
@@ -486,7 +502,19 @@ function highlightCurrentMove() {
     node.classList.toggle('is-current', Number(node.dataset.ply) === state.ply);
   }
   const active = document.querySelector('.move-cell.is-current');
-  if (active) active.scrollIntoView({ block: 'nearest' });
+  if (!active) return;
+
+  // Scroll the move list only. scrollIntoView walks up every scrollable
+  // ancestor, the document included, so it drags the whole page down a few
+  // pixels on each navigation click.
+  const box = $('movesScroll');
+  const boxRect = box.getBoundingClientRect();
+  const rect = active.getBoundingClientRect();
+  if (rect.top < boxRect.top) {
+    box.scrollTop -= boxRect.top - rect.top;
+  } else if (rect.bottom > boxRect.bottom) {
+    box.scrollTop += rect.bottom - boxRect.bottom;
+  }
 }
 
 const CLASS_ORDER = [
