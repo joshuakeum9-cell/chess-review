@@ -248,6 +248,59 @@ export class Chess {
     return this._attacked(swapColor(this.turn), this.kings[this.turn]);
   }
 
+  /* Every piece of `byColor` that attacks `square`, as
+   * [{ type, square, value }] sorted cheapest first. Used by the static
+   * exchange evaluation that decides whether a move is really a sacrifice.
+   * Ignores pins, which is the standard simplification for SEE. */
+  attackersOf(square, byColor) {
+    const sq = typeof square === 'string' ? fromAlgebraic(square) : square;
+    const found = [];
+
+    for (const off of PIECE_OFFSETS.n) {
+      const t = sq + off;
+      if (t & 0x88) continue;
+      const p = this.board[t];
+      if (p && p.color === byColor && p.type === KNIGHT) {
+        found.push({ type: KNIGHT, square: t });
+      }
+    }
+
+    for (const off of PIECE_OFFSETS.q) {
+      let t = sq + off;
+      let dist = 1;
+      while (!(t & 0x88)) {
+        const p = this.board[t];
+        if (p) {
+          if (p.color === byColor) {
+            const diagonal = off === -17 || off === -15 || off === 17 || off === 15;
+            const slides =
+              p.type === QUEEN ||
+              (diagonal && p.type === BISHOP) ||
+              (!diagonal && p.type === ROOK);
+            if (slides) {
+              found.push({ type: p.type, square: t });
+            } else if (dist === 1) {
+              if (p.type === KING) found.push({ type: KING, square: t });
+              else if (p.type === PAWN && diagonal) {
+                const attacksThisWay =
+                  byColor === WHITE ? off === 17 || off === 15 : off === -17 || off === -15;
+                if (attacksThisWay) found.push({ type: PAWN, square: t });
+              }
+            }
+          }
+          break;
+        }
+        t += off;
+        dist++;
+      }
+    }
+
+    const value = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+    return found
+      .map((f) => ({ ...f, value: value[f.type] }))
+      .sort((a, b) => a.value - b.value);
+  }
+
   _generateMoves({ legal = true, square = null } = {}) {
     const us = this.turn;
     const them = swapColor(us);

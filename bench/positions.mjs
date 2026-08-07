@@ -1,0 +1,64 @@
+/* A fixed position suite for engine and classification benchmarks.
+ * Spread deliberately across game phases and position types, because an
+ * engine that is fine in the middlegame can still be poor in endgames, and
+ * the classifier's weak spots are phase-specific.
+ */
+
+export const SUITE = [
+  // --- openings -------------------------------------------------------
+  { category: 'opening', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' },
+  { category: 'opening', fen: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2' },
+  { category: 'opening', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3' },
+  { category: 'opening', fen: 'rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4' },
+  { category: 'opening', fen: 'r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 6 4' },
+  { category: 'opening', fen: 'rnbqkb1r/pp2pppp/3p1n2/2pP4/2P5/8/PP2PPPP/RNBQKBNR w KQkq - 0 4' },
+  { category: 'opening', fen: 'rnbqkb1r/pp3ppp/4pn2/2pp4/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 5' },
+  { category: 'opening', fen: 'rnbqk2r/ppp1ppbp/3p1np1/8/2PPP3/2N2N2/PP2BPPP/R1BQK2R b KQkq - 3 6' },
+
+  // --- middlegames ----------------------------------------------------
+  { category: 'middlegame', fen: 'r1bq1rk1/pp2ppbp/2np1np1/8/2PNP3/2N1B3/PP2BPPP/R2Q1RK1 b - - 5 9' },
+  { category: 'middlegame', fen: 'r2q1rk1/pb1nbppp/1p2pn2/2pp4/2PP4/1PN1PN2/PB2BPPP/R2Q1RK1 w - - 0 11' },
+  { category: 'middlegame', fen: 'r1b2rk1/pp1nqppp/2pbpn2/3p4/2PP4/2NBPN2/PPQ2PPP/R1B2RK1 w - - 4 10' },
+  { category: 'middlegame', fen: '2rq1rk1/pb2bppp/1pn1pn2/8/2BP4/P1N1PN2/1B3PPP/R2Q1RK1 w - - 2 13' },
+  { category: 'middlegame', fen: 'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1' },
+  { category: 'middlegame', fen: 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 4 5' },
+  { category: 'middlegame', fen: '2r2rk1/1bqnbppp/p2ppn2/1p6/3NPP2/PBN1B3/1PPQ2PP/2KR3R w - - 0 15' },
+  { category: 'middlegame', fen: 'rn1qr1k1/pp2bppp/2p2n2/3p1b2/3P4/2NBPN2/PPQ2PPP/R1B2RK1 w - - 6 11' },
+
+  // --- tactics --------------------------------------------------------
+  { category: 'tactics', fen: 'r1bqkb1r/pppp1Bpp/2n2n2/4p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4' },
+  { category: 'tactics', fen: '1k1r4/pp1b1R2/3q2pp/4p3/2B5/4Q3/PPP2B2/2K5 b - - 0 1' },
+  { category: 'tactics', fen: '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1' },
+  { category: 'tactics', fen: 'r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 11' },
+  { category: 'tactics', fen: '2r3k1/pp3pp1/4p2p/3nP3/3P4/P4N2/1P3PPP/2R3K1 b - - 0 22' },
+  { category: 'tactics', fen: 'r1b1k2r/ppppqppp/2n5/2b5/3nP3/2NB1N2/PPP2PPP/R1BQK2R w KQkq - 0 8' },
+  { category: 'tactics', fen: '3r1rk1/pp3ppp/2n1b3/q1pp4/8/P1PPP1P1/1BQN1P1P/R3K2R w KQ - 0 15' },
+
+  // --- endgames -------------------------------------------------------
+  { category: 'endgame', fen: '8/8/8/8/8/5k2/6p1/6K1 w - - 0 1' },
+  { category: 'endgame', fen: '8/5k2/8/8/3K4/8/4P3/8 w - - 0 1' },
+  { category: 'endgame', fen: '8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1' },
+  { category: 'endgame', fen: '8/8/4k3/8/8/3K4/8/3R4 w - - 0 1' },
+  { category: 'endgame', fen: '6k1/pp3ppp/8/8/8/8/PP3PPP/6K1 w - - 0 1' },
+  { category: 'endgame', fen: '8/1p3pk1/p1p3p1/8/1P1P4/P3P1P1/5PK1/8 w - - 0 1' },
+  { category: 'endgame', fen: '4r3/8/8/4k3/8/8/4K3/4R3 w - - 0 1' },
+  { category: 'endgame', fen: '8/8/1p6/p1p5/P1P5/1P6/8/K1k5 w - - 0 1' },
+  { category: 'endgame', fen: '3k4/3p4/3K4/8/8/8/8/8 w - - 0 1' },
+  { category: 'endgame', fen: '8/6B1/8/8/8/5K2/6N1/6k1 w - - 0 1' },
+
+  // --- sacrifices / sharp ---------------------------------------------
+  { category: 'sacrifice', fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 5 4' },
+  { category: 'sacrifice', fen: 'r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 10' },
+  { category: 'sacrifice', fen: 'rnbq1b1r/ppp2kpp/3p1n2/8/3PP3/8/PPP2PPP/RNBQKB1R w KQ - 0 7' },
+  { category: 'sacrifice', fen: '4rrk1/pp1n1ppp/2pb4/q7/3P4/2NBPN2/PPQ2PPP/2R2RK1 w - - 0 17' },
+];
+
+/* Positions with a known single best answer, used to check that tactical
+ * detection and mate finding actually fire. */
+export const TACTICAL_TESTS = [
+  { fen: '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', expect: 'a1a8', label: 'back rank mate' },
+  { fen: 'r1bqkb1r/pppp1Bpp/2n2n2/4p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4', expect: 'e8f7', label: 'recapture bishop' },
+  { fen: '3qk3/8/8/8/8/8/5PPP/6K1 b - - 0 1', expect: 'd8d1', label: 'back rank' },
+  { fen: '7k/6pp/8/8/8/8/5PPP/R6K w - - 0 1', expect: 'a1a8', label: 'mate in 1' },
+  { fen: 'k7/8/8/8/8/8/1Q6/K7 w - - 0 1', expect: 'b2b7', label: 'mate in 1 queen' },
+];

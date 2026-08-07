@@ -7,7 +7,7 @@ import {
   buildReport,
   CLASSIFICATIONS,
   formatEval,
-  winPercent,
+  expectedFromCp,
 } from './review.js';
 import { BoardView } from './board.js';
 
@@ -241,7 +241,7 @@ async function runAnalysis() {
   try {
     await ensureEngine();
     await engine.newGame();
-    const depth = parseInt($('depthSelect').value, 10) || 12;
+    const depth = parseInt($('depthSelect').value, 10) || 16;
     state.depth = depth;
 
     const positions = await analysePositions(state.game, engine, {
@@ -352,7 +352,7 @@ function renderPosition() {
 
   if (state.positions && state.positions[state.ply]) {
     const pos = state.positions[state.ply];
-    updateEvalBar(pos.cpWhite, pos.mateWhite);
+    updateEvalBar(pos.cpWhite, pos.mateWhite, pos.expectedWhite);
   }
 
   renderDetail(reviewed);
@@ -436,8 +436,10 @@ function checkSquareFor(chess) {
   return 'abcdefgh'[kingSq & 15] + (8 - (kingSq >> 4));
 }
 
-function updateEvalBar(cpWhite, mateWhite) {
-  const pct = winPercent(cpWhite);
+function updateEvalBar(cpWhite, mateWhite, expectedPct = null) {
+  // Prefer the engine's own win/draw/loss reading when we have it; fall back
+  // to the fitted curve for positions analysed outside the main pass.
+  const pct = expectedPct === null ? expectedFromCp(cpWhite) : expectedPct;
   $('evalBarWhite').style.height = `${pct}%`;
   const label = formatEval(cpWhite, mateWhite);
   $('evalBarLabel').textContent = label;
@@ -535,7 +537,9 @@ function renderSummary() {
   const { stats, opening } = state.report;
   $('whiteAccuracy').textContent = stats.w.accuracy.toFixed(1);
   $('blackAccuracy').textContent = stats.b.accuracy.toFixed(1);
-  $('openingName').textContent = opening.name || 'Unnamed opening';
+  $('openingName').textContent = opening.name
+    ? `${opening.name}${opening.eco ? ` (${opening.eco})` : ''}`
+    : 'Unnamed opening';
 
   renderPhases(stats);
 
@@ -723,12 +727,12 @@ function endRetry() {
  * lost, or null if we genuinely cannot tell. */
 async function retryAttemptCost(reviewed, move) {
   const pos = state.positions[reviewed.index];
-  const bestWin = winPercent(pos.cpMover);
+  const bestWin = pos.expected;
 
   // Fast path: the position's own search already scored this move, so the
   // two numbers come from the same search and compare exactly.
-  const line = (pos.linesMover || []).find((l) => l.first === move.uci);
-  if (line) return bestWin - winPercent(line.cp);
+  const line = (pos.candidates || []).find((c) => c.uci === move.uci);
+  if (line) return bestWin - line.expected;
 
   // Otherwise the move fell outside the candidate list — ask the engine
   // rather than assuming it is bad.
@@ -746,8 +750,15 @@ async function retryAttemptCost(reviewed, move) {
   });
   const top = res.lines[0];
   if (!top) return null;
-  // top.cp is from the opponent's point of view in the new position.
-  return bestWin - winPercent(-top.cp);
+  // The score is from the opponent's point of view in the new position, so
+  // flip it back to the mover's.
+  const flipped = top.wdl
+    ? { win: top.wdl.loss, draw: top.wdl.draw, loss: top.wdl.win }
+    : null;
+  const mine = flipped
+    ? (flipped.win + flipped.draw / 2) / 10
+    : expectedFromCp(-top.cp);
+  return bestWin - mine;
 }
 
 async function handleRetryMove(chess, move) {
@@ -834,7 +845,7 @@ function renderGraph() {
   const H = 140;
   const n = state.positions.length;
   const points = state.positions.map((p, i) => {
-    const win = winPercent(p.cpWhite);
+    const win = p.expectedWhite ?? expectedFromCp(p.cpWhite);
     return { x: (i / (n - 1)) * W, y: H - (win / 100) * H };
   });
 
@@ -870,7 +881,11 @@ function renderGraph() {
     const i = move.index + 1;
     const dot = document.createElementNS(ns, 'circle');
     dot.setAttribute('cx', (i / (n - 1)) * W);
-    dot.setAttribute('cy', H - (winPercent(move.evalAfterWhite) / 100) * H);
+    const after = state.positions[i];
+    const y = after && after.expectedWhite !== undefined
+      ? after.expectedWhite
+      : expectedFromCp(move.evalAfterWhite);
+    dot.setAttribute('cy', H - (y / 100) * H);
     dot.setAttribute('r', 4);
     dot.setAttribute('fill', CLASSIFICATIONS[move.classification].color);
     svg.append(dot);
@@ -1159,6 +1174,11 @@ document.addEventListener('keydown', (event) => {
       break;
   }
 });
+
+/* Exposed for inspection from the console: the parsed game, every position's
+ * evaluation, and the finished report. Handy when a verdict looks wrong and
+ * you want the numbers behind it. */
+window.chessReview = state;
 
 /* Boot: show the starting position and warm the engine up in the background. */
 board.setPosition(new Chess().fen());

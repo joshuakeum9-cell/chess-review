@@ -30,23 +30,20 @@ function copyInto(srcDir, destDir, files) {
   return copied > 0;
 }
 
-// Stockfish 16 NNUE, single threaded (no SharedArrayBuffer needed).
-const sf16Src = join(root, 'node_modules', 'stockfish', 'src');
-if (existsSync(sf16Src)) {
-  const net = readdirSync(sf16Src).find((f) => f.endsWith('.nnue'));
-  copyInto(sf16Src, join(root, 'vendor', 'sf16'), [
-    'stockfish-nnue-16-single.js',
-    'stockfish-nnue-16-single.wasm',
-    net,
-  ]);
-  if (net && net !== 'nn-5af11540bbfe.nnue') {
-    console.warn(
-      `\nNetwork file is ${net}, but js/engine.js asks for nn-5af11540bbfe.nnue.\n` +
-        `Update the EvalFile option in engine.js to match.`
-    );
+// Stockfish 17.1 lite: single threaded, network baked into the wasm, so no
+// SharedArrayBuffer and no separate 38 MB net file.
+const sf17Src = join(root, 'node_modules', 'stockfish', 'src');
+if (existsSync(sf17Src)) {
+  const files = readdirSync(sf17Src).filter((f) => f.startsWith('stockfish-17.1-lite-single'));
+  if (files.length) {
+    copyInto(sf17Src, join(root, 'vendor', 'sf17'), files);
+    const js = files.find((f) => f.endsWith('.js'));
+    console.log(`\nIf the build hash changed, update the sf17 entry in js/engine.js to ${js}`);
+  } else {
+    console.error('no stockfish-17.1-lite-single files found');
   }
 } else {
-  console.error('node_modules/stockfish not found. Run: npm install stockfish@16.0.0');
+  console.error('node_modules/stockfish not found. Run: npm install stockfish@17.1.0');
 }
 
 // Stockfish 10 fallback.

@@ -1,0 +1,349 @@
+/* classify.js — how a move gets its verdict.
+ *
+ * The measure is expected score, not centipawns.
+ *
+ * Centipawns answer "who is better and by how much", which is not the
+ * question. A move that drops the evaluation from +9.0 to +6.0 loses 300
+ * centipawns and changes nothing; a move that drops +0.3 to -0.5 loses less
+ * and throws the game away. What matters is how much of the *result* you gave
+ * up, so everything below is denominated in expected score: 100 means you
+ * score a full point with best play, 50 means a draw, 0 means you lose.
+ *
+ * Expected score comes from Stockfish's own win/draw/loss statistics
+ * (UCI_ShowWDL) rather than a curve fitted to centipawns. That distinction
+ * carries real information: +0.0 in a sharp middlegame and +0.0 in an
+ * opposite-coloured-bishop ending are both "equal", but the engine reports
+ * 90% draws for one and 99.4% for the other, and only the second is a
+ * position where nothing you do matters much. A fitted sigmoid cannot see the
+ * difference. Where WDL is unavailable the sigmoid is used as a fallback.
+ */
+
+import { Chess, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from './chess.js';
+
+export const CLASSIFICATIONS = {
+  brilliant: { label: 'Brilliant', symbol: '!!', color: '#26c2a3', rank: 0 },
+  great: { label: 'Great', symbol: '!', color: '#749bbf', rank: 1 },
+  best: { label: 'Best', symbol: '★', color: '#81b64c', rank: 2 },
+  excellent: { label: 'Excellent', symbol: '✓', color: '#81b64c', rank: 3 },
+  good: { label: 'Good', symbol: '✓', color: '#95b776', rank: 4 },
+  book: { label: 'Book', symbol: '▤', color: '#a88865', rank: 5 },
+  forced: { label: 'Forced', symbol: '⭢', color: '#9c9c9c', rank: 6 },
+  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f7c631', rank: 7 },
+  miss: { label: 'Miss', symbol: '⨯', color: '#ff7769', rank: 8 },
+  mistake: { label: 'Mistake', symbol: '?', color: '#ffa459', rank: 9 },
+  blunder: { label: 'Blunder', symbol: '??', color: '#fa412d', rank: 10 },
+};
+
+export const PIECE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+export const MATE_CP = 100000;
+
+/* ------------------------------------------------------------------ */
+/* expected score                                                      */
+/* ------------------------------------------------------------------ */
+
+/* Fallback when the engine does not report WDL. Lichess's fitted curve. */
+export function expectedFromCp(cp) {
+  if (cp >= MATE_CP - 10000) return 100;
+  if (cp <= -MATE_CP + 10000) return 0;
+  const clamped = Math.max(-2000, Math.min(2000, cp));
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * clamped)) - 1);
+}
+
+/* Expected score 0-100 for the side to move.
+ * `wdl` is per-mille {win, draw, loss} as Stockfish reports it. */
+export function expectedScore({ wdl = null, cp = 0, mate = null } = {}) {
+  if (mate !== null && mate !== undefined) return mate > 0 ? 100 : 0;
+  if (wdl && Number.isFinite(wdl.win)) return (wdl.win + wdl.draw / 2) / 10;
+  return expectedFromCp(cp);
+}
+
+/* How decisive the position is: 0 means a certain draw, 100 means the result
+ * is entirely undetermined. Used to tell "nothing matters here" positions
+ * from sharp ones. */
+export function volatility({ wdl = null, cp = 0 } = {}) {
+  if (wdl && Number.isFinite(wdl.draw)) return 100 - wdl.draw / 10;
+  // Without WDL, infer sharpness from how far from equal the score is.
+  return Math.min(100, 30 + Math.abs(cp) / 20);
+}
+
+/* ------------------------------------------------------------------ */
+/* static exchange evaluation                                          */
+/* ------------------------------------------------------------------ */
+
+/* What the side to move nets by initiating captures on `square`, in
+ * centipawns, assuming both sides keep taking while it pays.
+ *
+ * This is how a real sacrifice is told apart from an ordinary trade. Walking
+ * the engine's principal variation and looking at material cannot do it: in
+ * any capture sequence you are transiently down a piece, so every recapture
+ * looks like a sacrifice. SEE answers the actual question, which is whether
+ * the material comes back.
+ */
+export function staticExchange(chess, square, side, depth = 0) {
+  if (depth > 32) return 0;
+  const index = typeof square === 'string' ? squareIndex(square) : square;
+
+  const attackers = chess.attackersOf(index, side);
+  if (!attackers.length) return 0;
+
+  const victim = chess.board[index];
+  if (!victim) return 0;
+  const victimValue = PIECE_VALUES[victim.type];
+
+  // Always take with the cheapest attacker.
+  const attacker = attackers[0];
+  const next = chess.clone();
+  next.board[index] = { type: attacker.type, color: side };
+  next.board[attacker.square] = null;
+
+  const opponent = side === 'w' ? 'b' : 'w';
+  const gain = victimValue - staticExchange(next, index, opponent, depth + 1);
+
+  // Either side may decline to continue the exchange, so a losing capture is
+  // simply not played. That "stand pat" is what makes the result the true
+  // material outcome rather than the outcome of capturing blindly.
+  return Math.max(0, gain);
+}
+
+function squareIndex(name) {
+  return 'abcdefgh'.indexOf(name[0]) + (8 - parseInt(name[1], 10)) * 16;
+}
+
+/* Material the mover invested in this move, in centipawns.
+ * Positive means they gave material up. */
+export function sacrificeSize(fenBefore, move) {
+  const before = new Chess(fenBefore);
+  const mover = before.turn;
+  const captured = before.get(move.to);
+  const capturedValue = captured ? PIECE_VALUES[captured.type] : 0;
+
+  const after = new Chess(fenBefore);
+  if (!after.move(move.uci)) return 0;
+
+  // What the opponent nets by capturing on the destination square.
+  const opponent = mover === 'w' ? 'b' : 'w';
+  const recapture = staticExchange(after, move.to, opponent);
+  if (recapture <= 0) return 0; // nothing hanging, so nothing sacrificed
+
+  return recapture - capturedValue;
+}
+
+/* ------------------------------------------------------------------ */
+/* classification                                                      */
+/* ------------------------------------------------------------------ */
+
+/* Thresholds on expected-score loss, in points of expected result.
+ *
+ * These are not round numbers picked by feel. They were swept against
+ * Lichess's own judgments over 1419 plies of real games (bench/tune.mjs),
+ * scoring each combination on how well it reproduces an outside opinion.
+ * Moving `good` from 5 to 6 and `inaccuracy` from 10 to 12 lifted precision
+ * from 75.7% to 86.0% for 5.7 points of recall, which is the right trade: a
+ * verdict the player checks and disagrees with costs more trust than a mild
+ * inaccuracy left unmarked.
+ */
+const LOSS = {
+  excellent: 2,
+  good: 6,
+  inaccuracy: 12,
+  mistake: 18,
+};
+
+/* Positions where the result is already settled. Nothing you do there is
+ * really a blunder, and grading them as such is the single biggest source of
+ * false positives: an extra queen thrown away while still mating is not the
+ * same mistake as one that loses a drawn game. */
+const DECIDED_HIGH = 97;
+const DECIDED_LOW = 3;
+
+/**
+ * @param {object} ctx
+ *  before        expected score for the mover before the move, plus wdl/cp/mate
+ *  after         expected score for the mover after the move
+ *  played        {uci, san}
+ *  bestMove      engine's first choice (uci)
+ *  candidates    [{uci, expected}] from the same search, best first
+ *  legalCount    number of legal moves in the position
+ *  isBook        position still in the opening dataset
+ *  sacrificed    centipawns invested, from sacrificeSize()
+ *  hadMate       mover had a forced mate available
+ *  keptMate      mover still has a forced mate
+ */
+export function classifyMove(ctx) {
+  const {
+    before,
+    after,
+    played,
+    bestMove,
+    candidates = [],
+    legalCount = 20,
+    isBook = false,
+    sacrificed = 0,
+    hadMate = false,
+    keptMate = false,
+  } = ctx;
+
+  const expBefore = before.expected;
+  const expAfter = after.expected;
+  const rawLoss = Math.max(0, expBefore - expAfter);
+
+  const isEngineChoice = played.uci === bestMove;
+  // Positions routinely have several moves of identical value. Which one the
+  // engine happens to list first is arbitrary, so a move level with it is a
+  // best move too.
+  const tiedWithBest = rawLoss <= 0.5;
+  const playedBest = isEngineChoice || tiedWithBest;
+  const loss = playedBest ? 0 : rawLoss;
+
+  // How many moves keep the position within a hair of the best. A position
+  // with one saving move is a different test from one with six good ones.
+  const viable = candidates.filter((c) => expBefore - c.expected <= 3).length;
+  const onlyGoodMove = viable === 1 && candidates.length > 1;
+  const secondBest = candidates[1];
+  const alternativeCost = secondBest ? expBefore - secondBest.expected : null;
+
+  const decided =
+    (expBefore >= DECIDED_HIGH && expAfter >= DECIDED_HIGH) ||
+    (expBefore <= DECIDED_LOW && expAfter <= DECIDED_LOW);
+
+  const result = {
+    loss,
+    rawLoss,
+    playedBest,
+    isEngineChoice,
+    viable,
+    onlyGoodMove,
+    alternativeCost,
+    decided,
+    accuracy: accuracyForLoss(loss),
+  };
+
+  if (legalCount === 1) return { ...result, type: 'forced' };
+  if (isBook) return { ...result, type: 'book', loss: 0, accuracy: 100 };
+
+  // --- brilliant ----------------------------------------------------
+  // A sound sacrifice that a human could plausibly miss. Every clause here
+  // exists to kill a specific false positive.
+  if (
+    sacrificed >= 150 && // a real piece, not an exchange shuffle
+    loss <= 2 && // still essentially the best move
+    playedBest && // and actually the engine's choice
+    expAfter >= 45 && // you are not worse for it
+    expBefore < 85 && // not already winning, where sacs are routine cleanup
+    !hadMate // giving material into a mate you already had is not brilliance
+  ) {
+    return { ...result, type: 'brilliant' };
+  }
+
+  // --- great --------------------------------------------------------
+  // The one move that held, in a position where it mattered.
+  if (
+    playedBest &&
+    !decided &&
+    onlyGoodMove &&
+    alternativeCost !== null &&
+    alternativeCost >= 10 &&
+    expBefore - (secondBest ? secondBest.expected : 0) >= 10
+  ) {
+    return { ...result, type: 'great' };
+  }
+
+  if (playedBest) return { ...result, type: 'best' };
+
+  // Nothing meaningful is at stake, so nothing here is an error.
+  if (decided) {
+    return { ...result, type: loss < LOSS.good ? 'excellent' : 'good' };
+  }
+
+  // --- missed win ---------------------------------------------------
+  // Throwing away a forced mate or a decisive advantage is its own category,
+  // separate from how many points it cost.
+  const wasWinning = hadMate || expBefore >= 85;
+  const stillWinning = keptMate || expAfter >= 85;
+  if (wasWinning && !stillWinning && loss >= LOSS.good) {
+    return { ...result, type: 'miss', missedMate: hadMate && !keptMate };
+  }
+
+  if (loss < LOSS.excellent) return { ...result, type: 'excellent' };
+  if (loss < LOSS.good) return { ...result, type: 'good' };
+  if (loss < LOSS.inaccuracy) return { ...result, type: 'inaccuracy' };
+  if (loss < LOSS.mistake) return { ...result, type: 'mistake' };
+  return { ...result, type: 'blunder' };
+}
+
+/* ------------------------------------------------------------------ */
+/* accuracy                                                            */
+/* ------------------------------------------------------------------ */
+
+/* Per-move accuracy from expected-score loss. Lichess's published curve,
+ * which maps a loss of 0 to 100% and decays fast enough that a single
+ * blunder is felt without swamping everything else. */
+export function accuracyForLoss(loss) {
+  const raw = 103.1668 * Math.exp(-0.04354 * loss) - 3.1669;
+  return Math.max(0, Math.min(100, raw));
+}
+
+/* Game accuracy for one side.
+ *
+ * A plain mean is wrong: it treats a mistake in a dead-drawn endgame the same
+ * as one in a razor-sharp middlegame, and it lets a long tail of trivial
+ * moves bury a decisive error. Lichess weights each move by how volatile the
+ * position was around it, then combines the weighted mean with a harmonic
+ * mean, which punishes the worst moves rather than letting them average out.
+ *
+ * `moves` is [{ accuracy, volatility }] for one player, in game order.
+ */
+export function gameAccuracy(moves) {
+  const scored = moves.filter((m) => m.counts !== false);
+  if (!scored.length) return 100;
+  if (scored.length === 1) return scored[0].accuracy;
+
+  const weights = scored.map((m) => Math.max(0.5, Math.min(12, m.volatility / 10)));
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+
+  const weightedMean =
+    scored.reduce((sum, m, i) => sum + m.accuracy * weights[i], 0) / totalWeight;
+
+  const harmonic =
+    scored.length / scored.reduce((sum, m) => sum + 1 / Math.max(m.accuracy, 1), 0);
+
+  return Math.max(0, Math.min(100, (weightedMean + harmonic) / 2));
+}
+
+/* A coarse performance band. Deliberately not presented as a rating. */
+export function performanceBand(accuracy) {
+  const table = [
+    [95, 2400],
+    [90, 2100],
+    [85, 1850],
+    [80, 1650],
+    [75, 1450],
+    [70, 1250],
+    [65, 1050],
+    [55, 850],
+  ];
+  for (const [threshold, rating] of table) {
+    if (accuracy >= threshold) return rating;
+  }
+  return 650;
+}
+
+/* ------------------------------------------------------------------ */
+/* game phase                                                          */
+/* ------------------------------------------------------------------ */
+
+export function nonPawnMaterial(fen) {
+  const chess = new Chess(fen);
+  let total = 0;
+  for (const row of chess.boardArray()) {
+    for (const cell of row) {
+      if (cell && cell.type !== PAWN && cell.type !== KING) total += PIECE_VALUES[cell.type];
+    }
+  }
+  return total;
+}
+
+export function phaseOf(fen, bookPlies, ply) {
+  if (ply <= bookPlies) return 'opening';
+  return nonPawnMaterial(fen) <= 2600 ? 'endgame' : 'middlegame';
+}

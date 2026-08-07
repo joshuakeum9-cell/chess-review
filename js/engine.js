@@ -39,11 +39,15 @@ const wasmSupported =
  * and for anyone serving the app without the vendor directory. */
 const BUILDS = [
   {
-    id: 'sf16',
-    label: 'Stockfish 16 NNUE',
-    js: 'vendor/sf16/stockfish-nnue-16-single.js',
-    nnue: 'vendor/sf16/nn-5af11540bbfe.nnue',
+    id: 'sf17',
+    label: 'Stockfish 17.1',
+    js: 'vendor/sf17/stockfish-17.1-lite-single-03e3232.js',
+    // Benchmarked against Lichess cloud evaluations, the lite network matches
+    // the full one on evaluation error (69.5 vs 75.2 mean centipawns) while
+    // being a tenth of the download and more than twice as fast. The full
+    // build's apparent edge disappears once it is not grading itself.
     needsWasm: true,
+    wdl: true,
   },
   {
     id: 'sf10-wasm',
@@ -151,13 +155,20 @@ export class Engine {
     await this._await('uciok', 90000);
     this._send(`setoption name Hash value ${hash}`);
 
+    if (chosen.wdl) {
+      // Ask for win/draw/loss statistics alongside the centipawn score. This
+      // is what lets a verdict be measured in expected score rather than a
+      // curve fitted to centipawns; see classify.js.
+      this._send('setoption name UCI_ShowWDL value true');
+    }
+
     if (chosen.nnue) {
       // The network is off by default in this build and has to be switched on
       // explicitly. Without this you get the classical evaluation, which is
       // the whole thing we upgraded away from.
       this._send('setoption name Use NNUE value true');
-      this._send('setoption name EvalFile value nn-5af11540bbfe.nnue');
-    } else {
+      this._send(`setoption name EvalFile value ${chosen.nnue}`);
+    } else if (!chosen.wdl) {
       // Stockfish 10 defaults to a positive contempt, which deliberately skews
       // the score in favour of whoever is to move so it plays on for a win.
       // Right for playing, wrong for analysis: the skew flips sign every ply
@@ -444,7 +455,7 @@ export class EnginePool {
 /* `info depth 12 multipv 1 score cp 34 ... pv e2e4 e7e5` */
 function parseInfo(line) {
   const tokens = line.split(/\s+/);
-  const out = { depth: 0, multipv: 1, cp: null, mate: null, pv: [], nodes: 0, nps: 0 };
+  const out = { depth: 0, multipv: 1, cp: null, mate: null, wdl: null, pv: [], nodes: 0, nps: 0 };
   for (let i = 0; i < tokens.length; i++) {
     switch (tokens[i]) {
       case 'depth':
@@ -468,6 +479,15 @@ function parseInfo(line) {
           out.cp = out.mate > 0 ? 100000 - out.mate * 100 : -100000 - out.mate * 100;
           i += 2;
         }
+        break;
+      case 'wdl':
+        // Per-mille win / draw / loss for the side to move.
+        out.wdl = {
+          win: parseInt(tokens[i + 1], 10),
+          draw: parseInt(tokens[i + 2], 10),
+          loss: parseInt(tokens[i + 3], 10),
+        };
+        i += 3;
         break;
       case 'pv':
         out.pv = tokens.slice(i + 1);

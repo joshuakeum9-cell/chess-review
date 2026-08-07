@@ -1,0 +1,4 @@
+{
+  "//": "The vendored engine builds are CommonJS. The project root sets type=module, which would otherwise make Node parse these .js files as ES modules and fail. Browsers ignore this file; it only affects the Node benchmark harness in bench/.",
+  "type": "commonjs"
+}
