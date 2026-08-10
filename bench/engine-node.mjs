@@ -224,12 +224,18 @@ export class NodeEngine {
 
 export function parseInfo(line) {
   const t = line.split(/\s+/);
-  const out = { depth: 0, multipv: 1, cp: null, mate: null, pv: [], nodes: 0 };
+  const out = { depth: 0, multipv: 1, cp: null, mate: null, wdl: null, pv: [], nodes: 0 };
   for (let i = 0; i < t.length; i++) {
     switch (t[i]) {
       case 'depth': out.depth = +t[++i]; break;
       case 'multipv': out.multipv = +t[++i]; break;
       case 'nodes': out.nodes = +t[++i]; break;
+      // Must mirror js/engine.js exactly, or the benchmark measures a
+      // different pipeline from the one that ships.
+      case 'wdl':
+        out.wdl = { win: +t[i + 1], draw: +t[i + 2], loss: +t[i + 3] };
+        i += 3;
+        break;
       case 'score':
         if (t[i + 1] === 'cp') { out.cp = +t[i + 2]; i += 2; }
         else if (t[i + 1] === 'mate') {

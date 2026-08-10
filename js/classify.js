@@ -49,12 +49,60 @@ export function expectedFromCp(cp) {
   return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * clamped)) - 1);
 }
 
+/* Which scale the classifier measures loss on.
+ *
+ * 'cp'    the fitted centipawn curve  (default, and it earned it)
+ * 'wdl'   the engine's own win/draw/loss expectation
+ * 'blend' the average of the two
+ *
+ * Win/draw/loss looks like the better measure and is the more principled
+ * statement about the *result*. It is not the better measure of a *move*,
+ * and this was settled by experiment rather than argument. Measured against
+ * Lichess's judgments over 18 games (bench/scale-bench.mjs):
+ *
+ *   scale   recall  precision  exact   F1
+ *   wdl     52.0%   61.5%      46.9%   56.4%
+ *   cp      61.0%   86.2%      58.7%   71.4%
+ *   blend   50.4%   68.9%      50.0%   58.2%
+ *
+ * The reason is saturation. Past roughly two and a half pawns a strong engine
+ * wins essentially every time, so win/draw/loss reports 100 and keeps
+ * reporting 100 however much further ahead you get. Every move in a winning
+ * position then looks identical, including the ones that threw half the
+ * advantage away, and the scale has no resolution left exactly where a lot of
+ * real errors happen. The centipawn curve keeps its resolution across the
+ * whole practical range.
+ *
+ * Win/draw/loss is still used, for volatility: how drawish a position is
+ * remains the right thing to weight accuracy by, and it does not saturate in
+ * the same damaging way.
+ */
+export let LOSS_SCALE = 'cp';
+export function setLossScale(scale) {
+  LOSS_SCALE = scale;
+}
+
 /* Expected score 0-100 for the side to move.
  * `wdl` is per-mille {win, draw, loss} as Stockfish reports it. */
 export function expectedScore({ wdl = null, cp = 0, mate = null } = {}) {
   if (mate !== null && mate !== undefined) return mate > 0 ? 100 : 0;
-  if (wdl && Number.isFinite(wdl.win)) return (wdl.win + wdl.draw / 2) / 10;
-  return expectedFromCp(cp);
+  const curve = expectedFromCp(cp);
+  if (!wdl || !Number.isFinite(wdl.win)) return curve;
+  const fromWdl = (wdl.win + wdl.draw / 2) / 10;
+
+  if (LOSS_SCALE === 'cp') return curve;
+  if (LOSS_SCALE === 'wdl') return fromWdl;
+
+  /* Blend. Win/draw/loss is the better read on whether a position is truly
+   * drawn or truly decided, which is what stops dead positions being graded.
+   * But it saturates: past about two and a half pawns a strong engine wins
+   * every time, so it reports 100 and keeps reporting 100 however much
+   * further ahead you get. Two moves that both leave you "winning" then look
+   * identical when one of them threw away half the advantage.
+   *
+   * Averaging the two keeps the draw-awareness while restoring resolution in
+   * the range where advantages are actually won and lost. */
+  return (fromWdl + curve) / 2;
 }
 
 /* How decisive the position is: 0 means a certain draw, 100 means the result
@@ -181,6 +229,8 @@ export function classifyMove(ctx) {
     sacrificed = 0,
     hadMate = false,
     keptMate = false,
+    isRecapture = false,
+    inCheck = false,
   } = ctx;
 
   const expBefore = before.expected;
@@ -230,20 +280,32 @@ export function classifyMove(ctx) {
     playedBest && // and actually the engine's choice
     expAfter >= 45 && // you are not worse for it
     expBefore < 85 && // not already winning, where sacs are routine cleanup
-    !hadMate // giving material into a mate you already had is not brilliance
+    !hadMate && // giving material into a mate you already had is not brilliance
+    !isRecapture && // taking back is never the brilliant part
+    !inCheck // nor is a forced escape that happens to shed material
   ) {
     return { ...result, type: 'brilliant' };
   }
 
   // --- great --------------------------------------------------------
-  // The one move that held, in a position where it mattered.
+  // The one move that held, in a position where finding it was a real
+  // decision.
+  //
+  // The trap here is that "only move that does not lose" describes most
+  // recaptures. If the opponent takes your bishop, taking back is the only
+  // move that keeps material, every alternative drops a piece, and none of
+  // that makes it a great move: it is the move anybody plays without
+  // thinking. Left unguarded this fired on 4.7% of all plies, roughly five
+  // times what it should be.
   if (
     playedBest &&
     !decided &&
     onlyGoodMove &&
+    !isRecapture && // taking back is not a discovery
+    !inCheck && // nor is getting out of check with the one legal escape
+    legalCount >= 5 && // there has to have been a choice to get wrong
     alternativeCost !== null &&
-    alternativeCost >= 10 &&
-    expBefore - (secondBest ? secondBest.expected : 0) >= 10
+    alternativeCost >= 10
   ) {
     return { ...result, type: 'great' };
   }

@@ -352,7 +352,7 @@ function renderPosition() {
 
   if (state.positions && state.positions[state.ply]) {
     const pos = state.positions[state.ply];
-    updateEvalBar(pos.cpWhite, pos.mateWhite, pos.expectedWhite);
+    updateEvalBar(pos.cpWhite, pos.mateWhite);
   }
 
   renderDetail(reviewed);
@@ -436,10 +436,21 @@ function checkSquareFor(chess) {
   return 'abcdefgh'[kingSq & 15] + (8 - (kingSq >> 4));
 }
 
-function updateEvalBar(cpWhite, mateWhite, expectedPct = null) {
-  // Prefer the engine's own win/draw/loss reading when we have it; fall back
-  // to the fitted curve for positions analysed outside the main pass.
-  const pct = expectedPct === null ? expectedFromCp(cpWhite) : expectedPct;
+function updateEvalBar(cpWhite, mateWhite) {
+  /* The bar is drawn from the centipawn score, not from the engine's
+   * win/draw/loss expectation, even though the classifier uses the latter.
+   *
+   * They answer different questions. Win/draw/loss is a truthful statement
+   * about the result: from +2.5 a 3100-rated engine wins essentially every
+   * time, so expected score is already 100 there and stays 100 all the way to
+   * +9. That makes a useless bar. It slams to one side around two and a half
+   * pawns and then never moves again while the number beside it keeps
+   * climbing, which reads as broken.
+   *
+   * The centipawn curve keeps its resolution across exactly the range players
+   * watch, and is what every chess site draws, so the bar behaves the way the
+   * eye expects. */
+  const pct = expectedFromCp(cpWhite);
   $('evalBarWhite').style.height = `${pct}%`;
   const label = formatEval(cpWhite, mateWhite);
   $('evalBarLabel').textContent = label;
@@ -844,8 +855,11 @@ function renderGraph() {
   const W = 600;
   const H = 140;
   const n = state.positions.length;
+  // Same reasoning as the eval bar: the centipawn curve keeps its resolution
+  // where games are actually decided, so the graph has a readable shape
+  // instead of flat-lining at the top the moment someone is winning.
   const points = state.positions.map((p, i) => {
-    const win = p.expectedWhite ?? expectedFromCp(p.cpWhite);
+    const win = expectedFromCp(p.cpWhite);
     return { x: (i / (n - 1)) * W, y: H - (win / 100) * H };
   });
 
@@ -882,9 +896,7 @@ function renderGraph() {
     const dot = document.createElementNS(ns, 'circle');
     dot.setAttribute('cx', (i / (n - 1)) * W);
     const after = state.positions[i];
-    const y = after && after.expectedWhite !== undefined
-      ? after.expectedWhite
-      : expectedFromCp(move.evalAfterWhite);
+    const y = expectedFromCp(after ? after.cpWhite : move.evalAfterWhite);
     dot.setAttribute('cy', H - (y / 100) * H);
     dot.setAttribute('r', 4);
     dot.setAttribute('fill', CLASSIFICATIONS[move.classification].color);

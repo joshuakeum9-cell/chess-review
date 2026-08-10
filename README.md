@@ -55,8 +55,17 @@ node bench/vs-lichess.mjs sf17lite 14   # evaluation error vs Lichess cloud eval
 node bench/games.mjs            # fetch Lichess-analysed games as ground truth
 node bench/classify-bench.mjs 14   # classifier agreement with Lichess judgments
 node bench/tune.mjs 14          # sweep classification thresholds
+node bench/scale-bench.mjs 12   # compare loss scales against Lichess
+node bench/eval-bench.mjs 16    # evaluation and eval-bar accuracy per ply
+node bench/side-by-side.mjs 16 1  # our review next to Lichess's, ply by ply
 node bench/one-game.mjs 14      # per-move trace of a single game
 ```
+
+A warning learned the hard way: the benchmark harness re-implements the
+engine's UCI parsing, and for a while it did not parse win/draw/loss while the
+browser did. The two were then measuring different pipelines, and the
+benchmarks looked healthy while the shipped app used a worse scale. If you
+touch `parseInfo` in `js/engine.js`, mirror it in `bench/engine-node.mjs`.
 
 ## Loading a game
 
@@ -77,18 +86,40 @@ So everything is denominated in **expected score**: 100 means you score a full
 point with best play, 50 a draw, 0 a loss. The cost of a move is how much of
 the *result* it gave up.
 
-Expected score comes from Stockfish's own win/draw/loss statistics
-(`UCI_ShowWDL`) rather than a curve fitted to centipawns. That difference
-carries real information. Both of these positions evaluate to 0.00:
+### Why not the engine's own win/draw/loss numbers
 
-| Position | Engine says | Fitted curve says |
+Stockfish can report win/draw/loss probabilities directly (`UCI_ShowWDL`), and
+those look like the obviously better source for expected score. They are the
+more principled statement about the *result*. They are not the better measure
+of a *move*, which was settled by experiment rather than argument.
+
+Measured against Lichess's judgments over 18 games (`bench/scale-bench.mjs`):
+
+| scale | recall | precision | exact | F1 |
+| --- | --- | --- | --- | --- |
+| win/draw/loss | 52.0% | 61.5% | 46.9% | 56.4% |
+| **centipawn curve** | **61.0%** | **86.2%** | **58.7%** | **71.4%** |
+| average of the two | 50.4% | 68.9% | 50.0% | 58.2% |
+
+The reason is saturation. Past roughly two and a half pawns a strong engine
+wins essentially every time, so win/draw/loss reports 100 and keeps reporting
+100 however far ahead you get. Every move in a winning position then looks
+identical, including the ones that threw half the advantage away, and the
+scale has no resolution left exactly where a lot of real errors happen.
+
+The same saturation made the **eval bar** useless: it pinned to one side at
+about +2.5 and never moved again while the number beside it kept climbing.
+
+| Evaluation | win/draw/loss bar | centipawn bar |
 | --- | --- | --- |
-| Sharp balanced middlegame | 8% win / 90% draw / 9% loss | 50% |
-| Opposite-coloured bishops | 0.3% win / 99.4% draw / 0.3% loss | 50% |
+| +1.00 | 78% | 59% |
+| +2.50 | 100% | 72% |
+| +4.00 | 100% | 81% |
 
-Only the second is a position where nothing you do matters. A sigmoid on
-centipawns cannot tell them apart; the engine's own statistics can, and the
-classifier uses that to stop grading moves in dead positions.
+So the classifier and the bar both use the fitted centipawn curve. Win/draw/loss
+is still used for **volatility**, which is how drawish a position is, because
+that is the right thing to weight accuracy by and it does not saturate in the
+same damaging way.
 
 ### Two passes, so the comparison is fair
 
@@ -120,7 +151,7 @@ With `loss` = expected-score points given up:
 | **Forced** | Only one legal move |
 | **Book** | Position is still in the opening dataset |
 | **Brilliant !!** | A sound sacrifice: at least 150cp invested by static exchange, still the best move, still fine afterwards, and you were not already winning |
-| **Great !** | The only move that held, where it mattered: every alternative gives up 10+ points and the position was not already decided |
+| **Great !** | The only move that held, where finding it was a real decision: every alternative gives up 10+ points, and it is not a recapture, a check evasion, or a position with fewer than five legal moves |
 | **Best ★** | The engine's first choice, or level with it |
 | **Excellent** | `loss` < 2 |
 | **Good** | `loss` < 6 |
@@ -139,6 +170,13 @@ source of false blunders elsewhere: throwing away a second queen while still
 mating is not the same mistake as losing a drawn game.
 
 ### Sacrifices
+
+"Only move that does not lose" also describes most **recaptures**: if the
+opponent takes your bishop, taking back is the only move that keeps material
+and every alternative drops a piece. None of that makes it a great move. Left
+unguarded, Great fired on 4.7% of all plies, roughly five times what it should
+be; excluding recaptures, check evasions and near-forced positions brought it
+to 1.5%.
 
 Sacrifice detection uses **static exchange evaluation**, not a walk down the
 engine's principal variation. Walking the line cannot work: in any capture

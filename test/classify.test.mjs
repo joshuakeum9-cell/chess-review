@@ -15,6 +15,8 @@ import {
   gameAccuracy,
   classifyMove,
   nonPawnMaterial,
+  setLossScale,
+  LOSS_SCALE,
 } from '../js/classify.js';
 import { identifyOpening, bookDepth, lookupPosition, OPENING_COUNT } from '../js/openings.js';
 
@@ -78,16 +80,25 @@ check('mate is 100', expectedScore({ mate: 3 }), 100);
 check('being mated is 0', expectedScore({ mate: -2 }), 0);
 check('equal cp is 50', expectedFromCp(0), 50, 0.01);
 check(
-  'wdl beats cp for a dead draw',
+  'dead draw reads as level on either scale',
   expectedScore({ wdl: { win: 3, draw: 994, loss: 3 }, cp: 0 }),
   50,
   0.1
 );
-check(
-  'wdl reflects a winning position',
-  expectedScore({ wdl: { win: 1000, draw: 0, loss: 0 }, cp: 755 }),
-  100
-);
+{
+  // The default scale is the centipawn curve, chosen by benchmark. Its whole
+  // advantage is that it keeps resolving above the point where win/draw/loss
+  // has already saturated, so check exactly that.
+  setLossScale('wdl');
+  const wdlAt250 = expectedScore({ wdl: { win: 1000, draw: 0, loss: 0 }, cp: 250 });
+  const wdlAt900 = expectedScore({ wdl: { win: 1000, draw: 0, loss: 0 }, cp: 900 });
+  setLossScale('cp');
+  const cpAt250 = expectedScore({ wdl: { win: 1000, draw: 0, loss: 0 }, cp: 250 });
+  const cpAt900 = expectedScore({ wdl: { win: 1000, draw: 0, loss: 0 }, cp: 900 });
+  check('wdl saturates and stops resolving', wdlAt900 - wdlAt250, 0, 0.01);
+  check('cp scale keeps resolving above +2.5', cpAt900 - cpAt250 > 8, true);
+  check('cp scale is the default', LOSS_SCALE, 'cp');
+}
 check('dead draw has low volatility', volatility({ wdl: { win: 3, draw: 994, loss: 3 } }) < 5, true);
 check(
   'sharp position has high volatility',

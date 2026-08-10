@@ -227,6 +227,12 @@ export function buildReport(game, positions) {
 
     const sacrificed = sacrificeSize(move.fenBefore, move);
 
+    // Taking back on the square the opponent just took on. Obvious, and so
+    // never Great or Brilliant however much the alternatives lose.
+    const previous = i > 0 ? game.moves[i - 1] : null;
+    const isRecapture = !!(previous && move.captured && move.to === previous.to);
+    const inCheck = new Chess(move.fenBefore).inCheck();
+
     const verdict = classifyMove({
       before: { expected: expBefore, wdl: before.wdl, cp: before.cpMover },
       after: { expected: expAfter },
@@ -238,6 +244,8 @@ export function buildReport(game, positions) {
       sacrificed,
       hadMate,
       keptMate: stillMating,
+      isRecapture,
+      inCheck,
     });
 
     const phase = phaseOf(move.fenAfter, theory, i + 1);
