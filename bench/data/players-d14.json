@@ -1,0 +1,1282 @@
+[
+ {
+  "id": "kAdOQKeh",
+  "band": "2200+",
+  "side": "w",
+  "elo": 2644,
+  "ourAcc": 89.50738957214341,
+  "lichessAcc": 88.23140959243258,
+  "ourAcpl": 22.676470588235293,
+  "lichessAcpl": 24,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 3,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 3,
+   "mistake": 3,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "kAdOQKeh",
+  "band": "2200+",
+  "side": "b",
+  "elo": 3145,
+  "ourAcc": 94.10440345091016,
+  "lichessAcc": 92.01819201840723,
+  "ourAcpl": 14.985294117647058,
+  "lichessAcpl": 18,
+  "ourCounts": {
+   "inaccuracy": 6,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 3,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "xKWdG1d1",
+  "band": "2200+",
+  "side": "w",
+  "elo": 3131,
+  "ourAcc": 89.04643513521101,
+  "lichessAcc": 89.28184695234253,
+  "ourAcpl": 27.822222222222223,
+  "lichessAcpl": 30,
+  "ourCounts": {
+   "inaccuracy": 4,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "xKWdG1d1",
+  "band": "2200+",
+  "side": "b",
+  "elo": 2752,
+  "ourAcc": 83.13946174110484,
+  "lichessAcc": 83.21779503063999,
+  "ourAcpl": 42.88636363636363,
+  "lichessAcpl": 47,
+  "ourCounts": {
+   "inaccuracy": 8,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 7,
+   "mistake": 2,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "IyFe2k8U",
+  "band": "2200+",
+  "side": "w",
+  "elo": 2436,
+  "ourAcc": 91.0072684793291,
+  "lichessAcc": 88.84753295193497,
+  "ourAcpl": 26.083333333333332,
+  "lichessAcpl": 31,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 2,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "IyFe2k8U",
+  "band": "2200+",
+  "side": "b",
+  "elo": 3130,
+  "ourAcc": 96.07031276124935,
+  "lichessAcc": 94.4326604676433,
+  "ourAcpl": 11.520833333333334,
+  "lichessAcpl": 17,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "FdVI4HR4",
+  "band": "2200+",
+  "side": "w",
+  "elo": 3065,
+  "ourAcc": 75.51204611064091,
+  "lichessAcc": 74.09849967616228,
+  "ourAcpl": 48.8,
+  "lichessAcpl": 60,
+  "ourCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 0,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "FdVI4HR4",
+  "band": "2200+",
+  "side": "b",
+  "elo": 3115,
+  "ourAcc": 87.47988360184362,
+  "lichessAcc": 83.50738985187954,
+  "ourAcpl": 27.666666666666668,
+  "lichessAcpl": 41,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 1,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 2,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "kx7aGZB0",
+  "band": "2200+",
+  "side": "w",
+  "elo": 3113,
+  "ourAcc": 95.07421035069183,
+  "lichessAcc": 93.95942526768356,
+  "ourAcpl": 14.120689655172415,
+  "lichessAcpl": 17,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "kx7aGZB0",
+  "band": "2200+",
+  "side": "b",
+  "elo": 2718,
+  "ourAcc": 91.78434656933713,
+  "lichessAcc": 90.88270458755801,
+  "ourAcpl": 24.614035087719298,
+  "lichessAcpl": 25,
+  "ourCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "kHzZLMXD",
+  "band": "2200+",
+  "side": "w",
+  "elo": 2854,
+  "ourAcc": 94.36599989551289,
+  "lichessAcc": 91.41079778164143,
+  "ourAcpl": 13.5,
+  "lichessAcpl": 22,
+  "ourCounts": {
+   "inaccuracy": 3,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 1,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "kHzZLMXD",
+  "band": "2200+",
+  "side": "b",
+  "elo": 3132,
+  "ourAcc": 87.87291593583076,
+  "lichessAcc": 86.34542113679109,
+  "ourAcpl": 31.864864864864863,
+  "lichessAcpl": 40,
+  "ourCounts": {
+   "inaccuracy": 5,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 6,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "peBKz05Z",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1909,
+  "ourAcc": 96.81324794485418,
+  "lichessAcc": 97.0326535715391,
+  "ourAcpl": 39.372093023255815,
+  "lichessAcpl": 20,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "peBKz05Z",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1027,
+  "ourAcc": 97.7314151658715,
+  "lichessAcc": 97.78404174237744,
+  "ourAcpl": 30.523809523809526,
+  "lichessAcpl": 20,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "DOgumVNH",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1909,
+  "ourAcc": 80.81646937915775,
+  "lichessAcc": 80.94751226870716,
+  "ourAcpl": 55.82857142857143,
+  "lichessAcpl": 63,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "DOgumVNH",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1027,
+  "ourAcc": 96.85448558832476,
+  "lichessAcc": 97.17138614478452,
+  "ourAcpl": 26.942857142857143,
+  "lichessAcpl": 29,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "elPW7nIB",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1909,
+  "ourAcc": 92.27012774516272,
+  "lichessAcc": 97.25805403212041,
+  "ourAcpl": 72.74074074074075,
+  "lichessAcpl": 30,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "elPW7nIB",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1027,
+  "ourAcc": 94.07497720717349,
+  "lichessAcc": 98.34843744646537,
+  "ourAcpl": 56.69230769230769,
+  "lichessAcpl": 17,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "xqlaZKsM",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1027,
+  "ourAcc": 96.05068336813743,
+  "lichessAcc": 77.45323457873027,
+  "ourAcpl": 26.266666666666666,
+  "lichessAcpl": 42,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "xqlaZKsM",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1909,
+  "ourAcc": 51.092667761348906,
+  "lichessAcc": 48.113068503403916,
+  "ourAcpl": 67.24137931034483,
+  "lichessAcpl": 64,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "avHB0lhu",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1027,
+  "ourAcc": 95.68247396880253,
+  "lichessAcc": 85.10378997757425,
+  "ourAcpl": 30.8,
+  "lichessAcpl": 46,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "avHB0lhu",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1909,
+  "ourAcc": 79.46730105318257,
+  "lichessAcc": 77.27790090066506,
+  "ourAcpl": 53.95918367346939,
+  "lichessAcpl": 67,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 3
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 1,
+   "blunder": 3
+  }
+ },
+ {
+  "id": "BCi6IZfn",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1104,
+  "ourAcc": 29.68682407129817,
+  "lichessAcc": 26.710827268839516,
+  "ourAcpl": 154.16666666666666,
+  "lichessAcpl": 189,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "BCi6IZfn",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1074,
+  "ourAcc": 93.1882131586494,
+  "lichessAcc": 87.53994099753811,
+  "ourAcpl": 12.833333333333334,
+  "lichessAcpl": 18,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "vp3eHX4F",
+  "band": "1500-2200",
+  "side": "w",
+  "elo": 1500,
+  "ourAcc": 90.30945857660697,
+  "lichessAcc": 89.49488277478741,
+  "ourAcpl": 45.45238095238095,
+  "lichessAcpl": 37,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "vp3eHX4F",
+  "band": "1500-2200",
+  "side": "b",
+  "elo": 2948,
+  "ourAcc": 98.0337524571106,
+  "lichessAcc": 96.84118811848973,
+  "ourAcpl": 7.190476190476191,
+  "lichessAcpl": 14,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "AwBPWQbl",
+  "band": "1500-2200",
+  "side": "w",
+  "elo": 1500,
+  "ourAcc": 89.28340706853308,
+  "lichessAcc": 88.91572795539992,
+  "ourAcpl": 52.7,
+  "lichessAcpl": 44,
+  "ourCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 3,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "AwBPWQbl",
+  "band": "1500-2200",
+  "side": "b",
+  "elo": 2948,
+  "ourAcc": 96.52132615966082,
+  "lichessAcc": 94.90295994785856,
+  "ourAcpl": 13.15,
+  "lichessAcpl": 22,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "MvCJbmU8",
+  "band": "1500-2200",
+  "side": "w",
+  "elo": 2948,
+  "ourAcc": 97.43480454471776,
+  "lichessAcc": 98.38102660193819,
+  "ourAcpl": 6.1,
+  "lichessAcpl": 7,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "MvCJbmU8",
+  "band": "1500-2200",
+  "side": "b",
+  "elo": 1500,
+  "ourAcc": 82.7144444726689,
+  "lichessAcc": 84.13582564275572,
+  "ourAcpl": 88.21052631578948,
+  "lichessAcpl": 59,
+  "ourCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 5,
+   "mistake": 1,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "zpxjezxm",
+  "band": "1500-2200",
+  "side": "w",
+  "elo": 1542,
+  "ourAcc": 90.35613375419277,
+  "lichessAcc": 88.0043747619353,
+  "ourAcpl": 24.586206896551722,
+  "lichessAcpl": 35,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 2,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "zpxjezxm",
+  "band": "1500-2200",
+  "side": "b",
+  "elo": 2948,
+  "ourAcc": 97.13270909740092,
+  "lichessAcc": 95.11243782547291,
+  "ourAcpl": 8.206896551724139,
+  "lichessAcpl": 16,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "0XL6e5c4",
+  "band": "1500-2200",
+  "side": "w",
+  "elo": 1500,
+  "ourAcc": 94.49815749308233,
+  "lichessAcc": 97.87425009343048,
+  "ourAcpl": 94.9375,
+  "lichessAcpl": 24,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "0XL6e5c4",
+  "band": "1500-2200",
+  "side": "b",
+  "elo": 2948,
+  "ourAcc": 95.21729024230171,
+  "lichessAcc": 97.54666636729954,
+  "ourAcpl": 77.31746031746032,
+  "lichessAcpl": 28,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "oGcK4i8I",
+  "band": "1500-2200",
+  "side": "w",
+  "elo": 1889,
+  "ourAcc": 87.50584511701268,
+  "lichessAcc": 85.53751161631338,
+  "ourAcpl": 44.76744186046512,
+  "lichessAcpl": 44,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "oGcK4i8I",
+  "band": "1500-2200",
+  "side": "b",
+  "elo": 2948,
+  "ourAcc": 95.51812067285056,
+  "lichessAcc": 93.56383127555674,
+  "ourAcpl": 14.813953488372093,
+  "lichessAcpl": 22,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "PLYFkT5B",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1289,
+  "ourAcc": 83.88038257057065,
+  "lichessAcc": 85.27643359430834,
+  "ourAcpl": 121,
+  "lichessAcpl": 63,
+  "ourCounts": {
+   "inaccuracy": 4,
+   "mistake": 3,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 3,
+   "mistake": 3,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "PLYFkT5B",
+  "band": "under1500",
+  "side": "b",
+  "elo": 2246,
+  "ourAcc": 92.15335889265165,
+  "lichessAcc": 92.29210643070132,
+  "ourAcpl": 53.666666666666664,
+  "lichessAcpl": 40,
+  "ourCounts": {
+   "inaccuracy": 4,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 2,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "k9E2Y9bK",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1679,
+  "ourAcc": 53.70817635935954,
+  "lichessAcc": 54.00339362036813,
+  "ourAcpl": 115.15384615384616,
+  "lichessAcpl": 68,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "k9E2Y9bK",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1324,
+  "ourAcc": 86.69598180411401,
+  "lichessAcc": 84.48338532510986,
+  "ourAcpl": 76.02564102564102,
+  "lichessAcpl": 45,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "TVp4Byfn",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1561,
+  "ourAcc": 92.9253528148339,
+  "lichessAcc": 91.3408747286525,
+  "ourAcpl": 17.88,
+  "lichessAcpl": 22,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "TVp4Byfn",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1306,
+  "ourAcc": 88.93669796449097,
+  "lichessAcc": 87.59012321043465,
+  "ourAcpl": 23.92,
+  "lichessAcpl": 27,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "Vi8qhvCP",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1613,
+  "ourAcc": 77.42824142244245,
+  "lichessAcc": 98.34301260118652,
+  "ourAcpl": 67.875,
+  "lichessAcpl": 60,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "Vi8qhvCP",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1312,
+  "ourAcc": 71.37843156975556,
+  "lichessAcc": 99.42164140533426,
+  "ourAcpl": 86.84,
+  "lichessAcpl": 75,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 1,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 1,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "L7Gfvl07",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1297,
+  "ourAcc": 77.72288336693818,
+  "lichessAcc": 99.3068091805672,
+  "ourAcpl": 203.26315789473685,
+  "lichessAcpl": 73,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "L7Gfvl07",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1576,
+  "ourAcc": 98.11271131434248,
+  "lichessAcc": 99.8539972546694,
+  "ourAcpl": 32.3,
+  "lichessAcpl": 22,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "PkfA8Z19",
+  "band": "under1500",
+  "side": "w",
+  "elo": 2604,
+  "ourAcc": 80.15993728382422,
+  "lichessAcc": 73.87246835458564,
+  "ourAcpl": 61.75,
+  "lichessAcpl": 83,
+  "ourCounts": {
+   "inaccuracy": 5,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 1,
+   "blunder": 5
+  }
+ },
+ {
+  "id": "PkfA8Z19",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1292,
+  "ourAcc": 69.07801463423536,
+  "lichessAcc": 61.35437633113318,
+  "ourAcpl": 123.73684210526316,
+  "lichessAcpl": 139,
+  "ourCounts": {
+   "inaccuracy": 6,
+   "mistake": 2,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 3,
+   "mistake": 3,
+   "blunder": 4
+  }
+ },
+ {
+  "id": "HIG5J5Ie",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1286,
+  "ourAcc": 72.65927376628593,
+  "lichessAcc": 69.34221426641857,
+  "ourAcpl": 67.78571428571429,
+  "lichessAcpl": 82,
+  "ourCounts": {
+   "inaccuracy": 9,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 8,
+   "mistake": 3,
+   "blunder": 3
+  }
+ },
+ {
+  "id": "HIG5J5Ie",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1831,
+  "ourAcc": 79.63370069740989,
+  "lichessAcc": 75.58561491599218,
+  "ourAcpl": 54.964285714285715,
+  "lichessAcpl": 68,
+  "ourCounts": {
+   "inaccuracy": 7,
+   "mistake": 2,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 6,
+   "mistake": 6,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "oiKUIKUS",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1812,
+  "ourAcc": 56.502475406883505,
+  "lichessAcc": 52.43383191615911,
+  "ourAcpl": 92.6086956521739,
+  "lichessAcpl": 99,
+  "ourCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 3
+  }
+ },
+ {
+  "id": "oiKUIKUS",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1279,
+  "ourAcc": 79.76738121636961,
+  "lichessAcc": 70.57083370035838,
+  "ourAcpl": 40.869565217391305,
+  "lichessAcpl": 57,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 3
+  }
+ },
+ {
+  "id": "WUKk8mn3",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1509,
+  "ourAcc": 38.07726565954846,
+  "lichessAcc": 37.14729821602929,
+  "ourAcpl": 87.23529411764706,
+  "lichessAcpl": 120,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "WUKk8mn3",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1280,
+  "ourAcc": 74.0894661646584,
+  "lichessAcc": 67.27728674571732,
+  "ourAcpl": 50.705882352941174,
+  "lichessAcpl": 65,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 1,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 0,
+   "mistake": 1,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "lfj9ANfd",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1290,
+  "ourAcc": 86.7123965309227,
+  "lichessAcc": 86.47253688975414,
+  "ourAcpl": 38.27906976744186,
+  "lichessAcpl": 43,
+  "ourCounts": {
+   "inaccuracy": 6,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 7,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "lfj9ANfd",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1500,
+  "ourAcc": 92.10380927764575,
+  "lichessAcc": 92.27729389416609,
+  "ourAcpl": 22.88372093023256,
+  "lichessAcpl": 25,
+  "ourCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 0,
+   "blunder": 0
+  }
+ },
+ {
+  "id": "VXwaHlY4",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1823,
+  "ourAcc": 86.31475329396875,
+  "lichessAcc": 88.78575024003578,
+  "ourAcpl": 36.81818181818182,
+  "lichessAcpl": 40,
+  "ourCounts": {
+   "inaccuracy": 0,
+   "mistake": 0,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "VXwaHlY4",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1293,
+  "ourAcc": 76.73167278382394,
+  "lichessAcc": 78.23715267696204,
+  "ourAcpl": 121.47619047619048,
+  "lichessAcpl": 85,
+  "ourCounts": {
+   "inaccuracy": 4,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 3,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "5ZSA7X7W",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1684,
+  "ourAcc": 79.3277284324435,
+  "lichessAcc": 75.65370226117149,
+  "ourAcpl": 48.48,
+  "lichessAcpl": 60,
+  "ourCounts": {
+   "inaccuracy": 4,
+   "mistake": 0,
+   "blunder": 2
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 1,
+   "blunder": 2
+  }
+ },
+ {
+  "id": "5ZSA7X7W",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1280,
+  "ourAcc": 70.24776473052697,
+  "lichessAcc": 67.94929751626415,
+  "ourAcpl": 116.83333333333333,
+  "lichessAcpl": 99,
+  "ourCounts": {
+   "inaccuracy": 5,
+   "mistake": 6,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 4,
+   "mistake": 2,
+   "blunder": 4
+  }
+ },
+ {
+  "id": "sqnuv5Dx",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1288,
+  "ourAcc": 84.21818454861115,
+  "lichessAcc": 86.03673598166,
+  "ourAcpl": 97.88571428571429,
+  "lichessAcpl": 47,
+  "ourCounts": {
+   "inaccuracy": 6,
+   "mistake": 0,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 3
+  }
+ },
+ {
+  "id": "sqnuv5Dx",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1606,
+  "ourAcc": 95.66174917261986,
+  "lichessAcc": 95.87378720205345,
+  "ourAcpl": 47.74285714285714,
+  "lichessAcpl": 19,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 0,
+   "blunder": 0
+  },
+  "lichessCounts": {
+   "inaccuracy": 1,
+   "mistake": 0,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "e8gTAghx",
+  "band": "under1500",
+  "side": "w",
+  "elo": 1616,
+  "ourAcc": 86.06991073268989,
+  "lichessAcc": 84.76877971997558,
+  "ourAcpl": 32.904761904761905,
+  "lichessAcpl": 35,
+  "ourCounts": {
+   "inaccuracy": 2,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 2,
+   "mistake": 1,
+   "blunder": 1
+  }
+ },
+ {
+  "id": "e8gTAghx",
+  "band": "under1500",
+  "side": "b",
+  "elo": 1296,
+  "ourAcc": 71.38868983403194,
+  "lichessAcc": 68.83628726034357,
+  "ourAcpl": 63.9,
+  "lichessAcpl": 79,
+  "ourCounts": {
+   "inaccuracy": 3,
+   "mistake": 1,
+   "blunder": 1
+  },
+  "lichessCounts": {
+   "inaccuracy": 3,
+   "mistake": 2,
+   "blunder": 1
+  }
+ }
+]

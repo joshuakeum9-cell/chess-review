@@ -1,29 +1,29 @@
-/* Benchmark the classifier against Lichess's own judgments on real games.
+/* Benchmark the whole review pipeline against Lichess on real games.
  *
- * Lichess marks a ply Inaccuracy / Mistake / Blunder using its own analysis.
- * We run our whole pipeline over the same games and compare. Perfect
- * agreement is not the goal, and would in fact be suspicious: Lichess uses
- * fixed centipawn bands on a different engine at a different depth. What
- * matters is that we agree on which moves are errors and roughly how bad,
- * and that we do not invent errors that are not there.
+ * Three levels of comparison, strictest first:
+ *   1. Per-player summary: our inaccuracy/mistake/blunder counts, average
+ *      centipawn loss, and accuracy versus the numbers Lichess shows on the
+ *      game page. This is what a player checks when deciding whether to
+ *      trust the review.
+ *   2. Per-ply judgments: which moves each of us flags, and how severely.
+ *   3. Invariants: properties that must hold regardless of engine output.
  *
- * Reports the confusion between the two, plus false-positive rates for the
- * categories most prone to them.
- *
- * Run: node bench/classify-bench.mjs [depth]
+ * Usage: node bench/classify-bench.mjs [depth] [verify]
+ *   verify = 1 runs the deep re-check pass on flagged moves, as the app does.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeEngine } from './engine-node.mjs';
 import { parsePgn } from '../js/chess.js';
-import { analysePositions, buildReport } from '../js/review.js';
+import { analysePositions, verifyFlaggedMoves, buildReport } from '../js/review.js';
+import { accuracyFromSeries } from '../js/classify.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const depth = Number(process.argv[2]) || 12;
+const depth = Number(process.argv[2]) || 14;
+const verify = process.argv[3] === '1';
 const games = JSON.parse(readFileSync(join(here, 'data', 'games.json'), 'utf8'));
 
-/* Adapter: the review pipeline expects the browser's EnginePool interface. */
 class SinglePool {
   constructor(engine) {
     this.engines = [engine];
@@ -53,27 +53,22 @@ engine.send('isready');
 await engine.expect('readyok');
 const pool = new SinglePool(engine);
 
-const LICHESS_TO_OURS = {
-  Inaccuracy: 'inaccuracy',
-  Mistake: 'mistake',
-  Blunder: 'blunder',
-};
+const MAP = { Inaccuracy: 'inaccuracy', Mistake: 'mistake', Blunder: 'blunder' };
 const SEVERITY = { inaccuracy: 1, mistake: 2, blunder: 3, miss: 3 };
+const bandOf = (g) => {
+  const e = Math.min(g.whiteElo || 9999, g.blackElo || 9999);
+  return e < 1500 ? 'under1500' : e < 2200 ? '1500-2200' : '2200+';
+};
 
-const confusion = {};
-let bothFlagged = 0;
-let onlyLichess = 0;
-let onlyOurs = 0;
-let agreeExact = 0;
-let agreeWithin1 = 0;
-let cleanBoth = 0;
-const counts = {};
-let totalPlies = 0;
 const plies = [];
-const accuracies = [];
+const players = [];
+const counts = {};
+const perBand = {};
+let totalPlies = 0;
+let invariantFailures = [];
 
 for (const [gi, g] of games.entries()) {
-  process.stdout.write(`\r[${gi + 1}/${games.length}] ${g.id} (${g.label})            `);
+  process.stdout.write(`\r[${gi + 1}/${games.length}] ${g.id} (${g.label})          `);
   let parsed;
   try {
     parsed = parsePgn(g.pgn);
@@ -85,125 +80,174 @@ for (const [gi, g] of games.entries()) {
   await engine.newGame();
   const positions = await analysePositions(parsed, pool, { depth, multipv: 3 });
   if (positions.length < parsed.moves.length + 1) continue;
+  if (verify) await verifyFlaggedMoves(parsed, positions, pool, { depth, extraDepth: 4 });
   const report = buildReport(parsed, positions);
-  accuracies.push({
-    id: g.id,
-    label: g.label,
-    white: +report.stats.w.accuracy.toFixed(1),
-    black: +report.stats.b.accuracy.toFixed(1),
-    whiteElo: g.whiteElo,
-    blackElo: g.blackElo,
-    plies: report.moves.length,
-  });
 
+  const band = bandOf(g);
+
+  // ---- invariants ---------------------------------------------------
+  for (const m of report.moves) {
+    if (!m.classification) invariantFailures.push(`${g.id} ply ${m.index + 1}: no classification`);
+    if (!Number.isFinite(m.loss) || !Number.isFinite(m.accuracy))
+      invariantFailures.push(`${g.id} ply ${m.index + 1}: NaN in loss/accuracy`);
+    if (m.playedBest && m.loss > 0)
+      invariantFailures.push(`${g.id} ply ${m.index + 1}: playedBest with loss ${m.loss.toFixed(2)}`);
+    if (/undefined|NaN|\[object/.test(m.explanation || ''))
+      invariantFailures.push(`${g.id} ply ${m.index + 1}: broken explanation "${(m.explanation || '').slice(0, 60)}"`);
+    if (m.classification !== 'book' && !(m.explanation || '').length)
+      invariantFailures.push(`${g.id} ply ${m.index + 1}: empty explanation`);
+  }
+  if (!Number.isFinite(report.stats.w.accuracy) || !Number.isFinite(report.stats.b.accuracy))
+    invariantFailures.push(`${g.id}: NaN game accuracy`);
+
+  // ---- per-player summary vs Lichess --------------------------------
+  const lichessSeries = [{ cp: 15, mate: null }].concat(
+    g.analysis.map((a) => ({ cp: a.eval ?? 0, mate: a.mate ?? null }))
+  );
+  // "From Position" games can start with Black to move; the mover parity of
+  // the eval series has to follow the game, not an assumption.
+  const startTurn = parsed.startFen.split(' ')[1] === 'b' ? 'b' : 'w';
+  const lichessAcc = accuracyFromSeries(lichessSeries, startTurn);
+
+  for (const side of ['w', 'b']) {
+    const summary = side === 'w' ? g.whiteSummary : g.blackSummary;
+    if (!summary) continue;
+    const mine = report.moves.filter((m) => m.color === side);
+    const ourCounts = {
+      inaccuracy: mine.filter((m) => m.classification === 'inaccuracy').length,
+      mistake: mine.filter((m) => m.classification === 'mistake').length,
+      blunder: mine.filter((m) => ['blunder', 'miss'].includes(m.classification)).length,
+    };
+    // acpl the way Lichess computes it: evals clamped to [-1000, 1000] FIRST,
+    // then mean cp lost per move. Clamping after differencing instead lets a
+    // mate score (+99xxx) that resolves to an ordinary +8 register as a
+    // 1000cp loss, which tripled acpl on mate-heavy games.
+    const clamp = (x) => Math.max(-1000, Math.min(1000, x));
+    const acpl =
+      mine.reduce((sum, m) => {
+        const before = clamp(m.evalBeforeWhite);
+        const after = clamp(m.evalAfterWhite);
+        const loss = side === 'w' ? Math.max(0, before - after) : Math.max(0, after - before);
+        return sum + loss;
+      }, 0) / (mine.length || 1);
+
+    players.push({
+      id: g.id,
+      band,
+      side,
+      elo: side === 'w' ? g.whiteElo : g.blackElo,
+      ourAcc: report.stats[side].accuracy,
+      lichessAcc: side === 'w' ? lichessAcc.white : lichessAcc.black,
+      ourAcpl: acpl,
+      lichessAcpl: summary.acpl,
+      ourCounts,
+      lichessCounts: {
+        inaccuracy: summary.inaccuracy ?? 0,
+        mistake: summary.mistake ?? 0,
+        blunder: summary.blunder ?? 0,
+      },
+    });
+  }
+
+  // ---- per-ply -------------------------------------------------------
   for (let i = 0; i < report.moves.length && i < g.analysis.length; i++) {
     const m = report.moves[i];
-    const ours = m.classification;
-    counts[ours] = (counts[ours] || 0) + 1;
+    counts[m.classification] = (counts[m.classification] || 0) + 1;
     totalPlies++;
-
     const lj = g.analysis[i] && g.analysis[i].judgment;
-    const theirs = lj ? LICHESS_TO_OURS[lj.name] : null;
-
-    // Everything a threshold sweep needs, so tuning does not require
-    // re-running the engine over every game.
     plies.push({
       game: g.id,
+      band,
       ply: i,
-      ours,
-      theirs,
+      ours: m.classification,
+      theirs: lj ? MAP[lj.name] : null,
       loss: m.loss,
       expectedBefore: m.expectedBefore,
       expectedAfter: m.expectedAfter,
-      volatility: m.volatility,
       playedBest: m.playedBest,
-      viable: m.viable,
-      alternativeCost: m.alternativeCost,
       decided: m.decided,
-      sacrificed: m.sacrificed,
-      isBook: ours === 'book',
+      isBook: m.classification === 'book',
       legalCount: positions[i].legalCount,
       phase: m.phase,
-      cpBefore: m.evalBeforeWhite,
-      cpAfter: m.evalAfterWhite,
     });
-
-    const key = `${theirs || 'none'} -> ${ours}`;
-    confusion[key] = (confusion[key] || 0) + 1;
-
-    const oursSev = SEVERITY[ours] || 0;
-    const theirsSev = theirs ? SEVERITY[theirs] : 0;
-
-    if (theirs && oursSev) {
-      bothFlagged++;
-      if (theirs === ours) agreeExact++;
-      if (Math.abs(oursSev - theirsSev) <= 1) agreeWithin1++;
-    } else if (theirs && !oursSev) onlyLichess++;
-    else if (!theirs && oursSev) onlyOurs++;
-    else cleanBoth++;
   }
 }
-
 process.stdout.write('\r' + ' '.repeat(70) + '\r');
 
-const flaggedByLichess = bothFlagged + onlyLichess;
-const flaggedByUs = bothFlagged + onlyOurs;
+/* ---- report ---------------------------------------------------------- */
 
-console.log(`=== classifier vs Lichess (depth ${depth}, ${games.length} games, ${totalPlies} plies) ===\n`);
-console.log(`Lichess flagged an error on   ${flaggedByLichess} plies`);
-console.log(`We flagged an error on        ${flaggedByUs} plies`);
-console.log(`Both flagged the same ply     ${bothFlagged}`);
-console.log(`  exact category match        ${agreeExact} (${pct(agreeExact, bothFlagged)})`);
-console.log(`  within one severity step    ${agreeWithin1} (${pct(agreeWithin1, bothFlagged)})`);
-console.log(`Missed by us (Lichess only)   ${onlyLichess} (${pct(onlyLichess, flaggedByLichess)} of theirs)`);
-console.log(`Extra errors we invented      ${onlyOurs} (${pct(onlyOurs, flaggedByUs)} of ours)`);
-console.log(`Both agree the move is fine   ${cleanBoth}`);
+console.log(`=== pipeline vs Lichess (depth ${depth}${verify ? ' + verify pass' : ''}, ${games.length} games, ${totalPlies} plies) ===`);
 
-console.log('\nRecall  (errors of theirs we caught):  ' + pct(bothFlagged, flaggedByLichess));
-console.log('Precision (our errors that are real): ' + pct(bothFlagged, flaggedByUs));
+console.log('\n--- invariants ---');
+if (invariantFailures.length) {
+  console.log(`${invariantFailures.length} FAILURES`);
+  for (const f of invariantFailures.slice(0, 12)) console.log('  ' + f);
+} else {
+  console.log('all hold');
+}
 
-console.log('\n=== our label distribution ===');
+console.log('\n--- per-player summary vs the numbers Lichess shows ---');
+const accDiffs = players.map((p) => Math.abs(p.ourAcc - p.lichessAcc));
+const acplDiffs = players.map((p) => Math.abs(p.ourAcpl - p.lichessAcpl));
+const countDiffs = players.map(
+  (p) =>
+    Math.abs(p.ourCounts.inaccuracy - p.lichessCounts.inaccuracy) +
+    Math.abs(p.ourCounts.mistake - p.lichessCounts.mistake) +
+    Math.abs(p.ourCounts.blunder - p.lichessCounts.blunder)
+);
+console.log(`players compared        ${players.length}`);
+console.log(`accuracy   mean abs diff ${mean(accDiffs).toFixed(1)} points  (median ${median(accDiffs).toFixed(1)}, worst ${Math.max(...accDiffs).toFixed(1)})`);
+console.log(`acpl       mean abs diff ${mean(acplDiffs).toFixed(1)} cp     (median ${median(acplDiffs).toFixed(1)}, worst ${Math.max(...acplDiffs).toFixed(0)})`);
+console.log(`I/M/B      mean abs diff ${mean(countDiffs).toFixed(1)} per player`);
+
+console.log('\nby band:');
+for (const band of ['2200+', '1500-2200', 'under1500']) {
+  const rows = players.filter((p) => p.band === band);
+  if (!rows.length) continue;
+  console.log(
+    `  ${band.padEnd(10)} n=${String(rows.length).padStart(2)}  acc diff ${mean(rows.map((p) => Math.abs(p.ourAcc - p.lichessAcc))).toFixed(1)}  acpl diff ${mean(rows.map((p) => Math.abs(p.ourAcpl - p.lichessAcpl))).toFixed(1)}`
+  );
+}
+
+console.log('\n--- per-ply judgments ---');
+let both = 0, onlyUs = 0, onlyThem = 0, exact = 0, within1 = 0;
+for (const p of plies) {
+  const a = SEVERITY[p.ours] || 0;
+  const b = p.theirs ? SEVERITY[p.theirs] : 0;
+  if (a && b) {
+    both++;
+    if (p.ours === p.theirs || (p.ours === 'miss' && p.theirs === 'blunder')) exact++;
+    if (Math.abs(a - b) <= 1) within1++;
+  } else if (a) onlyUs++;
+  else if (b) onlyThem++;
+}
+console.log(`recall ${pct(both, both + onlyThem)}   precision ${pct(both, both + onlyUs)}   exact ${pct(exact, both)}   within one step ${pct(within1, both)}`);
+
+console.log('\nby band (recall / precision):');
+for (const band of ['2200+', '1500-2200', 'under1500']) {
+  const rows = plies.filter((p) => p.band === band);
+  let b2 = 0, ou = 0, ot = 0;
+  for (const p of rows) {
+    const a = SEVERITY[p.ours] || 0;
+    const t = p.theirs ? SEVERITY[p.theirs] : 0;
+    if (a && t) b2++;
+    else if (a) ou++;
+    else if (t) ot++;
+  }
+  console.log(`  ${band.padEnd(10)} ${pct(b2, b2 + ot)} / ${pct(b2, b2 + ou)}   (${rows.length} plies)`);
+}
+
+console.log('\n--- label distribution ---');
 for (const [k, v] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
   console.log(`${k.padEnd(12)} ${String(v).padStart(5)}  ${pct(v, totalPlies)}`);
 }
 
-console.log('\n=== where we differ (lichess -> ours), top 12 ===');
-for (const [k, v] of Object.entries(confusion)
-  .filter(([k]) => {
-    const [l, o] = k.split(' -> ');
-    return l !== 'none' || SEVERITY[o];
-  })
-  .sort((a, b) => b[1] - a[1])
-  .slice(0, 12)) {
-  console.log(`${k.padEnd(28)} ${v}`);
-}
+writeFileSync(join(here, 'data', `plies-d${depth}${verify ? 'v' : ''}.json`), JSON.stringify(plies));
+writeFileSync(join(here, 'data', `players-d${depth}${verify ? 'v' : ''}.json`), JSON.stringify(players, null, 1));
 
-const allAcc = accuracies.flatMap((a) => [a.white, a.black]).sort((a, b) => a - b);
-if (allAcc.length) {
-  const mean = allAcc.reduce((a, b) => a + b, 0) / allAcc.length;
-  const median = allAcc[Math.floor(allAcc.length / 2)];
-  console.log('\n=== accuracy over these games (strong players, expect 80-95) ===');
-  console.log(
-    `mean ${mean.toFixed(1)}  median ${median.toFixed(1)}  ` +
-      `min ${allAcc[0].toFixed(1)}  max ${allAcc[allAcc.length - 1].toFixed(1)}`
-  );
-  const below70 = allAcc.filter((a) => a < 70).length;
-  console.log(`scores under 70: ${below70} of ${allAcc.length}`);
-  for (const a of accuracies) {
-    console.log(
-      `  ${a.id.padEnd(10)} ${String(a.plies).padStart(3)} plies  ` +
-        `W ${String(a.white).padStart(5)} (${a.whiteElo ?? '?'})  B ${String(a.black).padStart(5)} (${a.blackElo ?? '?'})`
-    );
-  }
-}
-
-writeFileSync(join(here, 'data', `acc-d${depth}.json`), JSON.stringify(accuracies, null, 1));
-writeFileSync(join(here, 'data', `plies-d${depth}.json`), JSON.stringify(plies));
-console.log(`\nwrote bench/data/plies-d${depth}.json (${plies.length} plies) for threshold tuning`);
-
-function pct(a, b) {
-  return b ? `${((a / b) * 100).toFixed(1)}%` : 'n/a';
-}
+function mean(a) { return a.reduce((x, y) => x + y, 0) / (a.length || 1); }
+function median(a) { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] ?? 0; }
+function pct(a, b) { return b ? `${((a / b) * 100).toFixed(1)}%` : 'n/a'; }
 
 engine.quit();
-process.exit(0);
+process.exit(invariantFailures.length ? 1 : 0);

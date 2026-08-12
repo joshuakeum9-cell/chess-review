@@ -25,6 +25,7 @@ import {
   volatility,
   sacrificeSize,
   gameAccuracy,
+  volatilityWeights,
   performanceBand,
   phaseOf,
   nonPawnMaterial,
@@ -198,12 +199,118 @@ async function scorePlayedMoves(game, positions, pool, { depth, onProgress, shou
   }
 }
 
+/* Third pass: re-examine every move the first report flagged as an error, at
+ * greater depth, before letting the verdict stand.
+ *
+ * Shallow-search noise is asymmetric in a nasty way. A move the engine
+ * briefly misjudges as losing becomes a false Mistake on screen; the player
+ * checks it, disagrees, and stops trusting the review. Re-searching only the
+ * flagged positions costs a fraction of a full deep analysis (typically a
+ * tenth of the plies) and removes exactly the verdicts most likely to be
+ * wrong. Chess.com's review does the same thing, which is why its blunder
+ * calls feel solid at a depth its full pass never reaches.
+ *
+ * Mutates `positions` in place; the caller rebuilds the report afterwards.
+ * Returns the indices it re-examined.
+ */
+export async function verifyFlaggedMoves(game, positions, pool, opts = {}) {
+  const { depth = 16, extraDepth = 4, onProgress, shouldStop } = opts;
+  const report = buildReport(game, positions);
+  const suspicious = new Set(['inaccuracy', 'mistake', 'blunder', 'miss', 'brilliant', 'great']);
+  const flagged = report.moves.filter((m) => suspicious.has(m.classification)).map((m) => m.index);
+  if (!flagged.length) return [];
+
+  const deeper = depth + extraDepth;
+
+  // Two jobs per flagged move: the position (for best move and candidates)
+  // and the played move in that position (for its same-frame score).
+  const jobs = [];
+  for (const i of flagged) {
+    jobs.push({ fen: positions[i].fen, multipv: 3, index: i, kind: 'position' });
+    jobs.push({
+      fen: positions[i].fen,
+      searchmoves: [game.moves[i].uci],
+      multipv: 1,
+      index: i,
+      kind: 'played',
+    });
+  }
+
+  const results = await pool.analyseAll(jobs, {
+    depth: deeper,
+    multipv: 3,
+    shouldStop,
+    onResult: (index, result, done) => {
+      if (onProgress) onProgress({ done, total: jobs.length, phase: 'verify' });
+    },
+  });
+
+  for (let j = 0; j < jobs.length; j++) {
+    const job = jobs[j];
+    const res = results[j];
+    if (!res || !res.lines.length) continue;
+    const pos = positions[job.index];
+    const sign = pos.toMove === 'w' ? 1 : -1;
+    const fen = pos.fen;
+
+    if (job.kind === 'position') {
+      const top = res.lines[0];
+      pos.candidates = res.lines
+        .filter((l) => l.pv && l.pv[0])
+        .map((l) => ({
+          uci: l.pv[0],
+          cp: l.cp,
+          mate: l.mate ?? null,
+          wdl: l.wdl || null,
+          expected: expectedScore({ wdl: l.wdl, cp: l.cp, mate: l.mate }),
+          san: (new Chess(fen).move(l.pv[0]) || {}).san || null,
+          lineSan: lineToSan(fen, l.pv, 6),
+          cpWhite: l.cp * sign,
+          mateWhite: l.mate === null || l.mate === undefined ? null : l.mate * sign,
+        }));
+      pos.cpMover = top.cp;
+      pos.cpWhite = top.cp * sign;
+      pos.mateWhite = top.mate === null || top.mate === undefined ? null : top.mate * sign;
+      pos.wdl = top.wdl || null;
+      pos.expected = expectedScore({ wdl: top.wdl, cp: top.cp, mate: top.mate });
+      pos.expectedWhite = pos.toMove === 'w' ? pos.expected : 100 - pos.expected;
+      pos.bestMove = res.bestMove || (top.pv && top.pv[0]) || pos.bestMove;
+      pos.bestSan = pos.bestMove ? (new Chess(fen).move(pos.bestMove) || {}).san || null : null;
+      pos.pv = top.pv || pos.pv;
+      pos.pvSan = top ? lineToSan(fen, top.pv, 8) : pos.pvSan;
+      pos.depth = res.depth;
+      pos.verified = true;
+    } else {
+      const known = pos.candidates.find((c) => c.uci === game.moves[job.index].uci);
+      const top = res.lines[0];
+      // Prefer the candidate entry when the deeper MultiPV already scored the
+      // played move: same search, exactly comparable.
+      pos.playedScore = known || {
+        uci: game.moves[job.index].uci,
+        cp: top.cp,
+        mate: top.mate ?? null,
+        wdl: top.wdl || null,
+        expected: expectedScore({ wdl: top.wdl, cp: top.cp, mate: top.mate }),
+        cpWhite: top.cp * sign,
+        mateWhite: top.mate === null || top.mate === undefined ? null : top.mate * sign,
+      };
+    }
+  }
+
+  return flagged;
+}
+
 /* Turn positions into per-move verdicts and whole-game statistics. */
 export function buildReport(game, positions) {
   const fensAfter = game.moves.map((m) => m.fenAfter);
   const opening = identifyOpening(fensAfter);
   const theory = bookDepth(fensAfter);
   const moves = [];
+
+  // Accuracy weights come from the volatility of the win% series around each
+  // move (Lichess's published method), not from any single position.
+  const winSeries = positions.map((p) => p.expectedWhite ?? 50);
+  const weights = volatilityWeights(winSeries);
 
   for (let i = 0; i < game.moves.length; i++) {
     const move = game.moves[i];
@@ -222,8 +329,7 @@ export function buildReport(game, positions) {
       : 100 - after.expected; // fallback: flip the opponent's view
 
     const hadMate = before.mateWhite !== null && before.mateWhite * sign > 0;
-    const keptMate = after.mateWhite !== null && after.mateWhite * sign < 0 ? false : false;
-    const stillMating = played && played.mate !== null && played.mate > 0;
+    const stillMating = !!(played && played.mate !== null && played.mate > 0);
 
     const sacrificed = sacrificeSize(move.fenBefore, move);
 
@@ -258,6 +364,7 @@ export function buildReport(game, positions) {
       loss: verdict.loss,
       accuracy: verdict.accuracy,
       volatility: before.volatility,
+      weight: weights[i] ?? 1,
       counts: verdict.type !== 'book',
       playedBest: verdict.playedBest,
       viable: verdict.viable,

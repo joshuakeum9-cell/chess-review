@@ -121,12 +121,19 @@ is still used for **volatility**, which is how drawish a position is, because
 that is the right thing to weight accuracy by and it does not saturate in the
 same damaging way.
 
-### Two passes, so the comparison is fair
+### Three passes, so the comparison is fair and the verdicts stick
 
 1. **Every position** is searched with MultiPV, giving the engine's choice and
    how close the alternatives were.
 2. **Every played move pass 1 did not already score** gets its own search with
    `searchmoves`, at the same depth, in the same position.
+3. **Every move the first report flags as an error is re-examined four plies
+   deeper** before the verdict is shown. Shallow-search noise is asymmetric in
+   a nasty way: a move the engine briefly misjudges becomes a false Mistake on
+   screen, the player checks it, disagrees, and stops trusting the review.
+   Re-searching only flagged moves costs a fraction of deepening the whole
+   game and removes exactly the verdicts most likely to be wrong. Measured
+   effect: precision against Lichess's judgments went from 88.4% to 95.2%.
 
 Both numbers therefore always come from the same search of the same position.
 Measuring against the *next* position instead looks reasonable but is quietly
@@ -190,15 +197,18 @@ a pawn.
 Per-move accuracy is `103.1668 · e^(-0.04354 · loss) - 3.1669`, clamped to
 0-100.
 
-Game accuracy is **not** a plain mean. A plain mean treats a mistake in a dead
-drawn endgame the same as one in a razor-sharp middlegame, and lets a long tail
-of trivial moves bury a decisive error. Instead each move is weighted by how
-volatile the position was around it, and the weighted mean is combined with a
+Game accuracy is **not** a plain mean. Following Lichess's published method,
+each move is weighted by the local volatility of the win% series around it
+(sliding-window standard deviation), and the weighted mean is combined with a
 harmonic mean, which punishes the worst moves rather than letting them average
 out.
 
-Measured over 18 games between 2000-2900 rated players: **mean 90.9, median
-94.5**, which is the band the major sites report for that population.
+Measured against the accuracy Lichess itself computes, over 32 games spanning
+1027-3145 rated players: **mean absolute difference 2.3 points, median 1.6**.
+In the 2200+ band the mean difference is 1.6 points. The comparison harness
+had to learn one lesson the hard way: Lichess "From Position" games can start
+with Black to move, and assuming white-moves-first silently attributes every
+move to the wrong player.
 
 ## Openings
 

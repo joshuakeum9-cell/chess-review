@@ -17,6 +17,7 @@ import {
   nonPawnMaterial,
   setLossScale,
   LOSS_SCALE,
+  accuracyFromSeries,
 } from '../js/classify.js';
 import { identifyOpening, bookDepth, lookupPosition, OPENING_COUNT } from '../js/openings.js';
 
@@ -125,6 +126,19 @@ check(
   gameAccuracy(Array.from({ length: 30 }, () => ({ accuracy: 98, volatility: 50 }))) > 95,
   true
 );
+
+console.log('\n--- accuracy from series ---');
+{
+  // White blunders on the first move: +0.2 collapses to -3.0.
+  const series = [{ cp: 20 }, { cp: -300 }, { cp: -310 }];
+  const w = accuracyFromSeries(series, 'w');
+  check('white-first: blunder lands on white', w.white < 60 && w.black > 90, true);
+  // Same series, but Black moved first: the same collapse favours Black, so
+  // it is not an error by either side under the flip... the drop from the
+  // mover's view belongs to whoever moved. Verify attribution flips.
+  const b = accuracyFromSeries(series, 'b');
+  check('black-first: attribution flips', b.black > 90 && b.white > 90, true);
+}
 
 console.log('\n--- classification ---');
 const baseCandidates = [

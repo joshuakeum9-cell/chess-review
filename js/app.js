@@ -4,6 +4,7 @@ import { Chess, parsePgn, splitPgnGames } from './chess.js';
 import { EnginePool } from './engine.js';
 import {
   analysePositions,
+  verifyFlaggedMoves,
   buildReport,
   CLASSIFICATIONS,
   formatEval,
@@ -255,6 +256,19 @@ async function runAnalysis() {
       shouldStop: () => state.cancelRequested,
     });
 
+    // Third pass: anything the first report calls an error gets re-examined
+    // at greater depth before the verdict is shown. Kills the false flags
+    // that shallow-search noise produces, at a fraction of the cost of
+    // deepening the whole game.
+    if (!state.cancelRequested && positions.length === state.game.moves.length + 1) {
+      await verifyFlaggedMoves(state.game, positions, engine, {
+        depth,
+        extraDepth: 4,
+        onProgress: ({ done, total, phase }) => setProgress(done, total, phase),
+        shouldStop: () => state.cancelRequested,
+      });
+    }
+
     // If you cancelled part-way, buildReport simply stops at the last move it
     // has an evaluation for. The game itself is left intact so you can run the
     // analysis again without losing moves.
@@ -292,7 +306,9 @@ function setProgress(done, total, phase = 'positions') {
   $('progressText').textContent =
     phase === 'moves'
       ? `Scoring your moves ${done} / ${total}`
-      : `Analysing ${done} / ${total} positions`;
+      : phase === 'verify'
+        ? `Double-checking flagged moves ${done} / ${total}`
+        : `Analysing ${done} / ${total} positions`;
 }
 
 /* ------------------------------------------------------------------ */

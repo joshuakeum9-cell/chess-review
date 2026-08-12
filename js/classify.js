@@ -345,22 +345,49 @@ export function accuracyForLoss(loss) {
   return Math.max(0, Math.min(100, raw));
 }
 
+/* Volatility weights for game accuracy, Lichess's published method.
+ *
+ * For each move, take a sliding window of the win% series around it and use
+ * the standard deviation of that window as the move's weight. A mistake made
+ * while the evaluation is swinging (sharp position, both sides erring) counts
+ * more than one made while the line is flat. Window size scales with game
+ * length, clamped to [2, 8]; weights clamped to [0.5, 12].
+ *
+ * `winPercents` is the white-POV win% for every position, length = plies + 1.
+ * Returns one weight per ply.
+ */
+export function volatilityWeights(winPercents) {
+  const plies = winPercents.length - 1;
+  if (plies <= 0) return [];
+  const windowSize = Math.max(2, Math.min(8, Math.ceil(plies / 10)));
+  const weights = new Array(plies);
+  for (let i = 0; i < plies; i++) {
+    const start = Math.max(0, i + 2 - windowSize);
+    const slice = winPercents.slice(start, i + 2);
+    const mean = slice.reduce((a, b) => a + b, 0) / slice.length;
+    const variance = slice.reduce((a, b) => a + (b - mean) * (b - mean), 0) / slice.length;
+    weights[i] = Math.max(0.5, Math.min(12, Math.sqrt(variance)));
+  }
+  return weights;
+}
+
 /* Game accuracy for one side.
  *
  * A plain mean is wrong: it treats a mistake in a dead-drawn endgame the same
  * as one in a razor-sharp middlegame, and it lets a long tail of trivial
- * moves bury a decisive error. Lichess weights each move by how volatile the
- * position was around it, then combines the weighted mean with a harmonic
- * mean, which punishes the worst moves rather than letting them average out.
+ * moves bury a decisive error. Following Lichess's published method, each
+ * move is weighted by the local volatility of the win% series, and the
+ * weighted mean is combined with a harmonic mean, which punishes the worst
+ * moves rather than letting them average out.
  *
- * `moves` is [{ accuracy, volatility }] for one player, in game order.
+ * `moves` is [{ accuracy, weight }] for one player, in game order.
  */
 export function gameAccuracy(moves) {
   const scored = moves.filter((m) => m.counts !== false);
   if (!scored.length) return 100;
   if (scored.length === 1) return scored[0].accuracy;
 
-  const weights = scored.map((m) => Math.max(0.5, Math.min(12, m.volatility / 10)));
+  const weights = scored.map((m) => Math.max(0.5, Math.min(12, m.weight ?? 1)));
   const totalWeight = weights.reduce((a, b) => a + b, 0);
 
   const weightedMean =
@@ -370,6 +397,33 @@ export function gameAccuracy(moves) {
     scored.length / scored.reduce((sum, m) => sum + 1 / Math.max(m.accuracy, 1), 0);
 
   return Math.max(0, Math.min(100, (weightedMean + harmonic) / 2));
+}
+
+/* Accuracy computed from a bare evaluation series, white POV, using the same
+ * formula end to end. Used by the benchmarks to compute what Lichess would
+ * say from its own evals, and usable on ours for cross-checking. `series` is
+ * [{cp, mate}] per position, length = plies + 1. Returns {white, black}.
+ *
+ * `startTurn` matters: games loaded from a position (Lichess "From Position",
+ * puzzles, adjourned games) can have Black moving first, and assuming
+ * white-first silently attributes every move to the wrong player. That is not
+ * a theoretical case; it produced 28-point accuracy "disagreements" in the
+ * benchmark before it was caught. */
+export function accuracyFromSeries(series, startTurn = 'w') {
+  const win = series.map((s) =>
+    s.mate !== null && s.mate !== undefined ? (s.mate > 0 ? 100 : 0) : expectedFromCp(s.cp)
+  );
+  const weights = volatilityWeights(win);
+  const white = [];
+  const black = [];
+  for (let i = 0; i + 1 < win.length; i++) {
+    const whiteMoves = startTurn === 'w' ? i % 2 === 0 : i % 2 === 1;
+    const before = whiteMoves ? win[i] : 100 - win[i];
+    const after = whiteMoves ? win[i + 1] : 100 - win[i + 1];
+    const acc = accuracyForLoss(Math.max(0, before - after));
+    (whiteMoves ? white : black).push({ accuracy: acc, weight: weights[i] });
+  }
+  return { white: gameAccuracy(white), black: gameAccuracy(black) };
 }
 
 /* A coarse performance band. Deliberately not presented as a rating. */
