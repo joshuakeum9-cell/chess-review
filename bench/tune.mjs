@@ -84,7 +84,8 @@ const scored = grid
   .map((t) => ({ t, s: score(t) }))
   .sort((a, b) => b.s.objective - a.s.objective);
 
-const current = { excellent: 2, good: 5, inaccuracy: 10, mistake: 20 };
+// Keep in sync with LOSS in js/classify.js, or the baseline row lies.
+const current = { excellent: 2, good: 6, inaccuracy: 12, mistake: 18 };
 const cur = score(current);
 
 console.log(`tuning on ${plies.length} plies at depth ${depth}\n`);

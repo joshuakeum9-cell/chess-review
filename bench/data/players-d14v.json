@@ -246,7 +246,7 @@
   "elo": 1909,
   "ourAcc": 96.81324794485418,
   "lichessAcc": 97.0326535715391,
-  "ourAcpl": 39.372093023255815,
+  "ourAcpl": 24.674418604651162,
   "lichessAcpl": 20,
   "ourCounts": {
    "inaccuracy": 0,
@@ -266,7 +266,7 @@
   "elo": 1027,
   "ourAcc": 97.7314151658715,
   "lichessAcc": 97.78404174237744,
-  "ourAcpl": 30.523809523809526,
+  "ourAcpl": 20.19047619047619,
   "lichessAcpl": 20,
   "ourCounts": {
    "inaccuracy": 0,
@@ -386,7 +386,7 @@
   "elo": 1909,
   "ourAcc": 47.486314661175264,
   "lichessAcc": 48.113068503403916,
-  "ourAcpl": 68.44827586206897,
+  "ourAcpl": 69.41379310344827,
   "lichessAcpl": 64,
   "ourCounts": {
    "inaccuracy": 0,
@@ -486,7 +486,7 @@
   "elo": 1500,
   "ourAcc": 90.3197025822789,
   "lichessAcc": 89.49488277478741,
-  "ourAcpl": 45.57142857142857,
+  "ourAcpl": 31,
   "lichessAcpl": 37,
   "ourCounts": {
    "inaccuracy": 2,
@@ -526,7 +526,7 @@
   "elo": 1500,
   "ourAcc": 89.82486443930564,
   "lichessAcc": 88.91572795539992,
-  "ourAcpl": 52.4,
+  "ourAcpl": 37.45,
   "lichessAcpl": 44,
   "ourCounts": {
    "inaccuracy": 4,
@@ -586,7 +586,7 @@
   "elo": 1500,
   "ourAcc": 85.70525462345861,
   "lichessAcc": 84.13582564275572,
-  "ourAcpl": 84.73684210526316,
+  "ourAcpl": 44.10526315789474,
   "lichessAcpl": 59,
   "ourCounts": {
    "inaccuracy": 3,
@@ -646,7 +646,7 @@
   "elo": 1500,
   "ourAcc": 94.53644212603234,
   "lichessAcc": 97.87425009343048,
-  "ourAcpl": 102.296875,
+  "ourAcpl": 46.5625,
   "lichessAcpl": 24,
   "ourCounts": {
    "inaccuracy": 1,
@@ -666,7 +666,7 @@
   "elo": 2948,
   "ourAcc": 95.26289527563057,
   "lichessAcc": 97.54666636729954,
-  "ourAcpl": 79.01587301587301,
+  "ourAcpl": 43,
   "lichessAcpl": 28,
   "ourCounts": {
    "inaccuracy": 1,
@@ -686,7 +686,7 @@
   "elo": 1889,
   "ourAcc": 87.92062979453713,
   "lichessAcc": 85.53751161631338,
-  "ourAcpl": 43.674418604651166,
+  "ourAcpl": 39.06976744186046,
   "lichessAcpl": 44,
   "ourCounts": {
    "inaccuracy": 1,
@@ -726,7 +726,7 @@
   "elo": 1289,
   "ourAcc": 84.23326895518511,
   "lichessAcc": 85.27643359430834,
-  "ourAcpl": 131.4047619047619,
+  "ourAcpl": 65.80952380952381,
   "lichessAcpl": 63,
   "ourCounts": {
    "inaccuracy": 4,
@@ -746,7 +746,7 @@
   "elo": 2246,
   "ourAcc": 91.90595141690457,
   "lichessAcc": 92.29210643070132,
-  "ourAcpl": 54.45238095238095,
+  "ourAcpl": 35.95238095238095,
   "lichessAcpl": 40,
   "ourCounts": {
    "inaccuracy": 2,
@@ -766,7 +766,7 @@
   "elo": 1679,
   "ourAcc": 53.74746392711313,
   "lichessAcc": 54.00339362036813,
-  "ourAcpl": 114.97435897435898,
+  "ourAcpl": 80.2051282051282,
   "lichessAcpl": 68,
   "ourCounts": {
    "inaccuracy": 0,
@@ -786,7 +786,7 @@
   "elo": 1324,
   "ourAcc": 86.92136360204842,
   "lichessAcc": 84.48338532510986,
-  "ourAcpl": 76.07692307692308,
+  "ourAcpl": 50.02564102564103,
   "lichessAcpl": 45,
   "ourCounts": {
    "inaccuracy": 2,
@@ -846,7 +846,7 @@
   "elo": 1613,
   "ourAcc": 82.40768156801023,
   "lichessAcc": 79.57019129589409,
-  "ourAcpl": 68.70833333333333,
+  "ourAcpl": 52.75,
   "lichessAcpl": 60,
   "ourCounts": {
    "inaccuracy": 0,
@@ -866,7 +866,7 @@
   "elo": 1312,
   "ourAcc": 71.92541992415694,
   "lichessAcc": 70.83561100109671,
-  "ourAcpl": 87.44,
+  "ourAcpl": 67.64,
   "lichessAcpl": 75,
   "ourCounts": {
    "inaccuracy": 1,
@@ -886,7 +886,7 @@
   "elo": 1297,
   "ourAcc": 78.07542893380541,
   "lichessAcc": 76.33379092355378,
-  "ourAcpl": 202.31578947368422,
+  "ourAcpl": 83.84210526315789,
   "lichessAcpl": 73,
   "ourCounts": {
    "inaccuracy": 0,
@@ -906,7 +906,7 @@
   "elo": 1576,
   "ourAcc": 98.11271131434248,
   "lichessAcc": 97.4589380377844,
-  "ourAcpl": 32.3,
+  "ourAcpl": 23.4,
   "lichessAcpl": 22,
   "ourCounts": {
    "inaccuracy": 0,
@@ -946,7 +946,7 @@
   "elo": 1292,
   "ourAcc": 66.01307102944611,
   "lichessAcc": 61.35437633113318,
-  "ourAcpl": 129.57894736842104,
+  "ourAcpl": 113.94736842105263,
   "lichessAcpl": 139,
   "ourCounts": {
    "inaccuracy": 3,
@@ -1006,7 +1006,7 @@
   "elo": 1812,
   "ourAcc": 58.0933601830329,
   "lichessAcc": 52.43383191615911,
-  "ourAcpl": 91.82608695652173,
+  "ourAcpl": 87.95652173913044,
   "lichessAcpl": 99,
   "ourCounts": {
    "inaccuracy": 0,
@@ -1046,7 +1046,7 @@
   "elo": 1509,
   "ourAcc": 37.21879324652331,
   "lichessAcc": 37.14729821602929,
-  "ourAcpl": 91.29411764705883,
+  "ourAcpl": 117.05882352941177,
   "lichessAcpl": 120,
   "ourCounts": {
    "inaccuracy": 0,
@@ -1146,7 +1146,7 @@
   "elo": 1293,
   "ourAcc": 77.31385469411656,
   "lichessAcc": 78.23715267696204,
-  "ourAcpl": 118.80952380952381,
+  "ourAcpl": 80.9047619047619,
   "lichessAcpl": 85,
   "ourCounts": {
    "inaccuracy": 3,
@@ -1186,7 +1186,7 @@
   "elo": 1280,
   "ourAcc": 71.1644995636201,
   "lichessAcc": 67.94929751626415,
-  "ourAcpl": 115.91666666666667,
+  "ourAcpl": 88.08333333333333,
   "lichessAcpl": 99,
   "ourCounts": {
    "inaccuracy": 7,
@@ -1206,7 +1206,7 @@
   "elo": 1288,
   "ourAcc": 84.301158640421,
   "lichessAcc": 86.03673598166,
-  "ourAcpl": 98.42857142857143,
+  "ourAcpl": 50.97142857142857,
   "lichessAcpl": 47,
   "ourCounts": {
    "inaccuracy": 5,
@@ -1226,7 +1226,7 @@
   "elo": 1606,
   "ourAcc": 95.77978668072147,
   "lichessAcc": 95.87378720205345,
-  "ourAcpl": 47.74285714285714,
+  "ourAcpl": 22.82857142857143,
   "lichessAcpl": 19,
   "ourCounts": {
    "inaccuracy": 2,

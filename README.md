@@ -204,11 +204,19 @@ harmonic mean, which punishes the worst moves rather than letting them average
 out.
 
 Measured against the accuracy Lichess itself computes, over 32 games spanning
-1027-3145 rated players: **mean absolute difference 2.3 points, median 1.6**.
-In the 2200+ band the mean difference is 1.6 points. The comparison harness
-had to learn one lesson the hard way: Lichess "From Position" games can start
-with Black to move, and assuming white-moves-first silently attributes every
-move to the wrong player.
+1027-3145 rated players: **mean absolute difference 2.3 points, median 1.6**
+(1.6 in the 2200+ band). Average centipawn loss agrees with Lichess's own acpl
+to a mean of 9.0cp, median 6.7. Two lessons the harness learned the hard way:
+Lichess "From Position" games can start with Black to move, and assuming
+white-first silently attributes every move to the wrong player; and acpl must
+clamp evals to +/-1000 before differencing, or a mate score resolving to an
+ordinary advantage reads as a 1000cp loss.
+
+On per-ply error flags, precision is 95.2% and every Lichess flag we decline
+turns out, after the deeper verification search, to cost under 6 expected-score
+points (median 4). The recall number (63%) is mostly that disagreement:
+Lichess flags small slips from a shallower pass; the deeper look says they
+were fine.
 
 ## Openings
 
