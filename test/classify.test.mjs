@@ -180,7 +180,18 @@ check(
   'blunder'
 );
 check(
-  'losing a won game is a Miss',
+  'shrinking a win while still in the game is a Miss',
+  classifyMove({
+    before: { expected: 95 },
+    after: { expected: 80 },
+    played: { uci: 'h2h4' },
+    bestMove: 'e2e4',
+    candidates: baseCandidates,
+  }).type,
+  'miss'
+);
+check(
+  'collapsing a won game entirely is a Blunder, not a Miss',
   classifyMove({
     before: { expected: 95 },
     after: { expected: 60 },
@@ -188,7 +199,22 @@ check(
     bestMove: 'e2e4',
     candidates: baseCandidates,
   }).type,
-  'miss'
+  'blunder'
+);
+check(
+  'stalemating from mate-in-one is a Blunder carrying the missed mate',
+  (() => {
+    const v = classifyMove({
+      before: { expected: 100 },
+      after: { expected: 50 },
+      played: { uci: 'f1f7' },
+      bestMove: 'f1f8',
+      candidates: [{ uci: 'f1f8', expected: 100 }],
+      hadMate: true,
+    });
+    return v.type === 'blunder' && v.missedMate === true;
+  })(),
+  true
 );
 check(
   'already-lost position does not blunder further',

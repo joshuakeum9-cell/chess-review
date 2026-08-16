@@ -127,13 +127,24 @@ same damaging way.
    how close the alternatives were.
 2. **Every played move pass 1 did not already score** gets its own search with
    `searchmoves`, at the same depth, in the same position.
-3. **Every move the first report flags as an error is re-examined four plies
-   deeper** before the verdict is shown. Shallow-search noise is asymmetric in
-   a nasty way: a move the engine briefly misjudges becomes a false Mistake on
-   screen, the player checks it, disagrees, and stops trusting the review.
-   Re-searching only flagged moves costs a fraction of deepening the whole
-   game and removes exactly the verdicts most likely to be wrong. Measured
-   effect: precision against Lichess's judgments went from 88.4% to 95.2%.
+3. **Every flagged move AND every borderline move is re-examined four plies
+   deeper** before the verdict is shown. Flagged-only verification is a
+   one-way ratchet: it can clear a false flag but can never recover an error
+   the shallow pass under-measured, and under-measurement is systematic in
+   already-bad positions, where the shallow search compresses the gap between
+   the best defence and the move played (a depth-22 audit found real mistakes
+   reading as loss 2-5 shallow and 7-11 deep). So moves whose loss lands just
+   under the error threshold get the same deep re-check, and the deep numbers
+   can add flags as well as remove them. Measured effect of verification:
+   precision against Lichess's judgments went from 88.4% to 95.2%.
+
+A depth-22 reference audit of the serious verdicts: **zero** shipped blunder,
+mistake or miss calls were downgraded to non-errors at depth 22, and no
+non-error ever became worse than inaccuracy. The remaining disagreement lives
+in a plus-or-minus-2-point band around the inaccuracy threshold, where two
+independent depth-22 searches disagree with each other as often as they
+disagree with the shipped depth: that band is search noise, not a depth
+ceiling, and no amount of extra depth settles it.
 
 Both numbers therefore always come from the same search of the same position.
 Measuring against the *next* position instead looks reasonable but is quietly
@@ -164,8 +175,8 @@ With `loss` = expected-score points given up:
 | **Good** | `loss` < 6 |
 | **Inaccuracy ?!** | `loss` < 12 |
 | **Mistake ?** | `loss` < 18 |
-| **Miss ⨯** | You had a forced mate or a won position and gave it up |
-| **Blunder ??** | Everything worse |
+| **Miss ⨯** | You had a forced mate or a won position and kept less of it, while staying in the game (`loss` between 6 and 18) |
+| **Blunder ??** | Everything worse. An outright collapse from a won position, a delivered stalemate included, is a Blunder however winning you were the move before |
 
 Those thresholds are not round numbers picked by feel. They were swept against
 Lichess's own judgments over 1419 plies of real games (`bench/tune.mjs`),
@@ -237,6 +248,20 @@ only named when a piece really does attack two targets; a mate is only claimed
 when the engine reports one. Generic filler is worse than saying less, because
 a player who checks the board and finds the claim false stops trusting
 everything else.
+
+An audit of 518 generated claims enforced three further rules:
+
+- A move that merely **ties** with the engine's choice is never described as
+  "the engine's first choice", and its explanation quotes the move's own
+  continuation (from its `searchmoves` line), never the other move's PV.
+- A **hanging** lead may only name a piece the move *newly* left takeable, and
+  only when nothing in the reply line costs more: a stray pawn must not bury a
+  fork that wins a rook.
+- When the punishing reply is a capture, it is named by what it **takes**
+  ("wins the queen"), not by the net material bucket ("wins a rook" because
+  queen-minus-knight rounds to five points).
+- A **stalemate** delivered from a winning position is called exactly that,
+  drawn on the spot, with the mating line that was available.
 
 ## Depth and speed
 

@@ -318,19 +318,25 @@ export function classifyMove(ctx) {
   }
 
   // --- missed win ---------------------------------------------------
-  // Throwing away a forced mate or a decisive advantage is its own category,
-  // separate from how many points it cost.
+  // Miss covers letting a win shrink: you had a forced mate or a decisive
+  // advantage, played something that keeps less of it, and are still in the
+  // game. It must NOT swallow outright collapses: throwing a won position
+  // into a draw (a delivered stalemate is the classic case) or into a loss
+  // is a blunder however winning you were the move before, and labelling it
+  // "miss" both softens the verdict and produces explanation text that talks
+  // about a missed mate while the game just ended.
   const wasWinning = hadMate || expBefore >= 85;
   const stillWinning = keptMate || expAfter >= 85;
-  if (wasWinning && !stillWinning && loss >= LOSS.good) {
-    return { ...result, type: 'miss', missedMate: hadMate && !keptMate };
+  const missedMate = hadMate && !keptMate;
+  if (wasWinning && !stillWinning && loss >= LOSS.good && loss < LOSS.mistake) {
+    return { ...result, type: 'miss', missedMate };
   }
 
   if (loss < LOSS.excellent) return { ...result, type: 'excellent' };
   if (loss < LOSS.good) return { ...result, type: 'good' };
   if (loss < LOSS.inaccuracy) return { ...result, type: 'inaccuracy' };
   if (loss < LOSS.mistake) return { ...result, type: 'mistake' };
-  return { ...result, type: 'blunder' };
+  return { ...result, type: 'blunder', missedMate };
 }
 
 /* ------------------------------------------------------------------ */

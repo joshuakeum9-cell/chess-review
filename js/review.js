@@ -195,6 +195,10 @@ async function scorePlayedMoves(game, positions, pool, { depth, onProgress, shou
       expected: expectedScore({ wdl: top.wdl, cp: top.cp, mate: top.mate }),
       cpWhite: top.cp * sign,
       mateWhite: top.mate === null || top.mate === undefined ? null : top.mate * sign,
+      // The searchmoves PV is the engine's continuation AFTER the played
+      // move, which is what an explanation may quote for it. Quoting the
+      // position's best-move PV instead describes a different move.
+      pv: top.pv || [],
     };
   }
 }
@@ -217,7 +221,28 @@ export async function verifyFlaggedMoves(game, positions, pool, opts = {}) {
   const { depth = 16, extraDepth = 4, onProgress, shouldStop } = opts;
   const report = buildReport(game, positions);
   const suspicious = new Set(['inaccuracy', 'mistake', 'blunder', 'miss', 'brilliant', 'great']);
-  const flagged = report.moves.filter((m) => suspicious.has(m.classification)).map((m) => m.index);
+
+  // Verification must be symmetric. Re-checking only flagged moves makes the
+  // pass a one-way ratchet: it can clear a false flag but can never recover
+  // an error the shallow pass under-measured, and under-measurement is
+  // systematic exactly where players blunder most, in already-bad positions
+  // (the shallow search compresses the gap between the best defence and the
+  // move played; a measured audit found real mistakes reading as loss 2-5 at
+  // the base depth and 7-11 four plies deeper). So borderline moves, the
+  // ones whose loss lands near the error threshold from below, get the same
+  // deep re-check as flagged ones, and the deep numbers may add flags as
+  // well as remove them.
+  const borderline = (m) =>
+    !suspicious.has(m.classification) &&
+    m.classification !== 'book' &&
+    m.classification !== 'forced' &&
+    !m.playedBest &&
+    m.loss >= 1.5 &&
+    m.loss < 8;
+
+  const flagged = report.moves
+    .filter((m) => suspicious.has(m.classification) || borderline(m))
+    .map((m) => m.index);
   if (!flagged.length) return [];
 
   const deeper = depth + extraDepth;
@@ -395,6 +420,16 @@ export function buildReport(game, positions) {
         bestSan: before.bestSan,
         bestPv: before.pv,
         replyPv: after.pv,
+        // The played move's own continuation, from its searchmoves search or
+        // its candidate entry. An explanation for the played move may quote
+        // only this, never the best move's PV.
+        playedPv: played ? played.pv || null : null,
+        playedLineSan: played && played.lineSan ? played.lineSan : null,
+        isEngineChoice: move.uci === before.bestMove,
+        // What the move did to the game itself: 'checkmate' or 'draw' when it
+        // ended it. A stalemate delivered from a winning position is a
+        // different sentence from an evaluation slip.
+        terminalAfter: after.terminal || null,
         expectedBefore: expBefore,
         expectedAfter: expAfter,
         sacrificed,

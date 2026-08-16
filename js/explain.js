@@ -43,6 +43,12 @@ function punishment(fenAfterMove, replyPv, mover) {
   const swing = materialSwing(fenAfterMove, replyPv, mover, 6);
 
   if (facts.givesMate) return { text: `${facts.san} is mate`, line };
+  // When the reply is a capture, name what it takes: "Nxh5 wins the queen"
+  // reads true to a player watching the queen leave the board, where the
+  // net-swing bucket ("wins a rook", queen minus knight) reads like a bug.
+  if (facts.isCapture && facts.capturedName && ['queen', 'rook'].includes(facts.capturedName) && swing.delta <= -280) {
+    return { text: `${facts.san} wins the ${facts.capturedName}`, line };
+  }
   if (swing.delta <= -280) {
     const what = pawnsText(swing.delta);
     return { text: `${facts.san} wins ${what || 'material'}`, line };
@@ -96,6 +102,10 @@ export function explainMove(ctx) {
     bestSan,
     bestPv, // uci[]
     replyPv, // uci[] from the position after the move
+    playedPv = null, // uci[] continuation of the PLAYED move, when known
+    playedLineSan = null,
+    isEngineChoice = false,
+    terminalAfter = null, // 'checkmate' | 'draw' when the move ended the game
     expectedBefore,
     expectedAfter,
     sacrificed,
@@ -112,7 +122,31 @@ export function explainMove(ctx) {
   const differs = bestSan && bestSan !== move.san;
   const best = differs ? bestMoveIdea(move.fenBefore, bestPv) : null;
   const hurt = punishment(move.fenAfter, replyPv, mover);
-  const nowHanging = hangingPieces(move.fenAfter, mover);
+
+  // A move that ended the game in a draw from a winning position is almost
+  // always a stalemate delivered by accident. Name it: "this loses 50% of
+  // expected score" is technically true and completely misses the point.
+  const board = new Chess(move.fenAfter);
+  const isStalemate = terminalAfter === 'draw' && board.isStalemate();
+
+  // Only pieces this move NEWLY left takeable. Leading with a piece that was
+  // already hanging before the move blames the wrong decision, and can bury
+  // the move's real cost behind a stray pawn.
+  const hangingBefore = new Set(
+    hangingPieces(move.fenBefore, mover).map((h) => h.square + h.type)
+  );
+  const nowHanging = hangingPieces(move.fenAfter, mover).filter(
+    (h) => !hangingBefore.has(h.square + h.type)
+  );
+
+  // The continuation an explanation may quote for the played move. The best
+  // move's PV is a different move's future and must never be shown as this
+  // move's "play continues".
+  const ownLine = playedLineSan && playedLineSan.length
+    ? playedLineSan
+    : playedPv && playedPv.length
+      ? lineToSan(move.fenBefore, playedPv, 5)
+      : null;
 
   switch (type) {
     case 'book':
@@ -141,9 +175,22 @@ export function explainMove(ctx) {
     }
 
     case 'best': {
-      const idea = best && best.idea ? `, which ${best.idea}` : '';
-      const line = bestPv && bestPv.length ? ` Play continues ${formatLine(move.fenBefore, lineToSan(move.fenBefore, bestPv, 5))}.` : '';
-      return `The engine's first choice${idea}.${line}`;
+      if (isEngineChoice) {
+        // Only the engine's actual first choice may borrow its idea and PV.
+        const own = bestMoveIdea(move.fenBefore, bestPv);
+        const idea = own && own.idea ? `, which ${own.idea}` : '';
+        const line = bestPv && bestPv.length
+          ? ` Play continues ${formatLine(move.fenBefore, lineToSan(move.fenBefore, bestPv, 5))}.`
+          : '';
+        return `The engine's first choice${idea}.${line}`;
+      }
+      // Tied with the engine's pick but a different move. Say that, and quote
+      // this move's own continuation or nothing: quoting the other move's
+      // line here was the single largest source of false explanation claims.
+      const line = ownLine && ownLine.length
+        ? ` Play continues ${formatLine(move.fenBefore, ownLine)}.`
+        : '';
+      return `Every bit as strong as the engine's ${bestSan || 'choice'}.${line}`;
     }
 
     case 'excellent':
@@ -168,12 +215,19 @@ export function explainMove(ctx) {
     }
 
     case 'miss': {
+      if (isStalemate) {
+        return `This is stalemate: the opponent has no legal move and the game is drawn on the spot.${hadMate && best ? ` ${best.san} ${mateBefore ? `mates in ${Math.abs(mateBefore)}` : 'wins'}: ${best.line}.` : ''}`;
+      }
       if (hadMate && !keptMate) {
         const inN = mateBefore ? ` in ${Math.abs(mateBefore)}` : '';
         return `There was a forced mate${inN} here and this lets it go.${best ? ` ${best.san} finishes it: ${best.line}.` : ''}`;
       }
       const had = Math.round(expectedBefore);
       const now = Math.round(expectedAfter);
+      // "Gives it back" would overstate a win that is merely smaller now.
+      if (expectedAfter >= 60) {
+        return `A faster win was there and this lets it slip, from about ${had}% to ${now}%.${best ? ` ${best.san} kept full control: ${best.line}.` : ''}`;
+      }
       return `You were winning and this gives it back, from about ${had}% down to ${now}%.${best ? ` ${best.san} kept it: ${best.line}.` : ''}`;
     }
 
@@ -181,8 +235,21 @@ export function explainMove(ctx) {
     case 'blunder': {
       const parts = [];
 
-      // Lead with the concrete consequence, if there is one.
-      if (facts && nowHanging.length) {
+      // Lead with the concrete consequence, if there is one. When both a
+      // newly hanging piece and a tactical reply exist, lead with whichever
+      // costs more: a stray pawn must not bury a fork that wins a rook.
+      const replySwing = replyPv && replyPv.length
+        ? -materialSwing(move.fenAfter, replyPv, mover, 6).delta
+        : 0;
+      const hangGain = nowHanging.length ? nowHanging[0].gain : 0;
+
+      if (isStalemate) {
+        parts.push('This is stalemate: the opponent has no legal move and the game is drawn on the spot.');
+        if (hadMate && best) {
+          parts.push(`${best.san} ${mateBefore ? `mates in ${Math.abs(mateBefore)}` : 'wins'}: ${best.line}.`);
+          return parts.join(' ');
+        }
+      } else if (facts && nowHanging.length && hangGain >= replySwing - 100) {
         const h = nowHanging[0];
         parts.push(
           `This leaves the ${h.name} on ${h.square} hanging.`
