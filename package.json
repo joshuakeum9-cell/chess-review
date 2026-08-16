@@ -5,7 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node test/perft.mjs && node test/classify.test.mjs",
+    "test": "node test/perft.mjs && node test/classify.test.mjs && node test/explain.test.mjs",
     "start": "python -m http.server 8130",
     "vendor": "npm install stockfish@17.1.0 stockfish.js@10.0.2 && node scripts/vendor.mjs",
     "openings": "node scripts/build-openings.mjs",
