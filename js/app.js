@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608211542';
-import { EnginePool } from './engine.js?v=202608211542';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608211611';
+import { EnginePool } from './engine.js?v=202608211611';
 import {
   analysePositions,
   verifyFlaggedMoves,
@@ -9,9 +9,9 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608211542';
-import { BoardView } from './board.js?v=202608211542';
-import { chipHtml, classColor } from './icons.js?v=202608211542';
+} from './review.js?v=202608211611';
+import { BoardView } from './board.js?v=202608211611';
+import { chipHtml, classColor } from './icons.js?v=202608211611';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -453,9 +453,9 @@ function renderEngineLines() {
     score.textContent = evalText;
     score.style.background = ahead ? '#ffffff' : behind ? '#000000' : '#757575';
     score.style.color = ahead ? '#000000' : '#ffffff';
-    // The white pill needs a firmer edge than the default hairline to stay
-    // legible as a "white is better" chip on the white panel.
-    score.style.borderColor = ahead ? '#757575' : 'transparent';
+    // Firmer edges so the white pill reads on light rows and the black pill
+    // reads on the dark panel.
+    score.style.borderColor = ahead ? '#757575' : behind ? '#5e5e5e' : 'transparent';
 
     const moves = document.createElement('span');
     moves.className = 'engine-line-moves';
@@ -659,23 +659,12 @@ function accuracyColour(value) {
   return '#fa412d';
 }
 
-/* The chip palette is tuned for badges on the board; as text on the white
- * panels the light hues wash out. Same hue families, darkened to read. */
-const CLASS_TEXT = {
-  brilliant: '#0f8a72',
-  great: '#4a6d95',
-  best: '#537d2b',
-  excellent: '#537d2b',
-  good: '#5a7540',
-  book: '#8a5c30',
-  forced: '#666666',
-  inaccuracy: '#8a6d00',
-  miss: '#c2401f',
-  mistake: '#a3520a',
-  blunder: '#c62817',
-};
+/* Text color for a classification. The app page runs on the dark theme,
+ * where the light chip palette reads well as text; if the chrome ever goes
+ * light again, swap this back to a darkened per-class map (see git history,
+ * the light NVIDIA build had one). */
 function classTextColor(type) {
-  return CLASS_TEXT[type] || '#1a1a1a';
+  return classColor(type);
 }
 
 function renderKeyMoments() {
@@ -774,8 +763,8 @@ function showBetterMove(reviewed) {
   const note = $('exploreNote');
   note.hidden = false;
   note.innerHTML =
-    `<strong style="color:#3e7a1e">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')}, the move to play. ` +
-    `<strong style="color:#2c6d99">Blue</strong>: ${escapeHtml(reviewed.san)}, what you played. ` +
+    `<strong style="color:#9fcf3f">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')}, the move to play. ` +
+    `<strong style="color:#48c1f9">Blue</strong>: ${escapeHtml(reviewed.san)}, what you played. ` +
     `Press the right arrow key to go back to the game.`;
 }
 
@@ -799,7 +788,8 @@ function renderGraph() {
   const bg = document.createElementNS(ns, 'rect');
   bg.setAttribute('width', W);
   bg.setAttribute('height', H);
-  bg.setAttribute('fill', '#1a1a1a');
+  // Pure black so the chart stands off the #1a1a1a panel it sits on.
+  bg.setAttribute('fill', '#000000');
   svg.append(bg);
 
   const area = document.createElementNS(ns, 'path');
@@ -935,7 +925,7 @@ async function playExploratoryMove(chess, move) {
     '<svg class="chip-icon" width="38" height="38" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#6b7280"/><text x="12" y="12.5" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="13" font-weight="800">?</text></svg>';
   $('detailBadge').style.background = 'transparent';
   $('detailTitle').textContent = 'Exploring';
-  $('detailTitle').style.color = '#757575';
+  $('detailTitle').style.color = '#a7a7a7';
   $('detailMove').textContent = state.explore.moves.map((m) => m.san).join(' ');
   $('detailText').textContent = 'Asking the engine…';
   $('detailLine').hidden = true;

@@ -17,8 +17,8 @@ import {
   lineToSan,
   formatLine,
   PIECE_NAMES,
-} from './tactics.js?v=202608211542';
-import { Chess } from './chess.js?v=202608211542';
+} from './tactics.js?v=202608211611';
+import { Chess } from './chess.js?v=202608211611';
 
 const PLURAL = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 

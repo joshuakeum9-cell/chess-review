@@ -48,10 +48,14 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--canvas);
   color: var(--body);
   font-family: Inter, Arial, Helvetica, sans-serif;
   font-size: 16px;
+}
+/* Background lives on body ONLY so it propagates to the root canvas; if
+ * html painted its own, the dark app page would sit on a white viewport. */
+body {
+  background: var(--canvas);
 }
 
 button,
@@ -1133,7 +1137,7 @@ textarea {
 }
 .load-dialog .input::placeholder,
 .load-dialog textarea::placeholder {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
 }
 .load-dialog .btn-ghost {
   color: var(--on-dark);
@@ -1227,4 +1231,58 @@ textarea {
   color: var(--on-dark-mute);
   font-size: 11.5px;
   margin-top: 2px;
+}
+
+/* ------------------------------------------------------------ dark app */
+/* The analyser page runs as an NVIDIA black chapter (Joshua's call):
+ * black page canvas, elevated #1a1a1a panels, white type, the same green.
+ * The about page keeps the light body chapters - this scope only exists
+ * on index.html's body. Board colors are untouched by any of this. */
+body.theme-dark {
+  background: #000000;
+  /* Native chrome (scrollbars, select popups) renders dark too. */
+  color-scheme: dark;
+  --canvas: #1a1a1a;
+  --surface-soft: #262626;
+  --ink: #ffffff;
+  --body: #ffffff;
+  --mute: rgba(255, 255, 255, 0.7);
+  --stone: #a7a7a7;
+  --hairline: #5e5e5e;
+}
+/* The AA-darkened light-theme value is unreadable here. */
+body.theme-dark .move-number {
+  color: #a7a7a7;
+}
+/* Active move mirrors the dialog's active tab: green on black chapter. */
+body.theme-dark .move-cell.is-current {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+body.theme-dark .move-cell.is-current .move-loss {
+  color: rgba(0, 0, 0, 0.65);
+}
+/* The accuracy tiles keep meaning: White's tile is white, Black's black. */
+body.theme-dark .big-acc-w {
+  background: #ffffff;
+  color: #000000;
+  border-color: transparent;
+}
+body.theme-dark .big-acc-b {
+  border: 1px solid var(--hairline);
+}
+body.theme-dark .avatar-w {
+  background: #ffffff;
+  color: #000000;
+  border-color: transparent;
+}
+body.theme-dark .coach-avatar {
+  border: 1px solid var(--hairline);
+}
+body.theme-dark .avatar-b {
+  border: 1px solid var(--hairline);
+}
+/* The nav needs its own edge now that the page below it is also black. */
+body.theme-dark .topbar {
+  border-bottom: 1px solid var(--hairline);
 }
