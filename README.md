@@ -265,23 +265,34 @@ An audit of 518 generated claims enforced three further rules:
 
 ## Depth and speed
 
-Times are for a 45-move game on a modern laptop with 6 workers.
+Times are on a modern laptop with 10 workers. Position searches and played-move
+searches run as one combined batch (no barrier between the passes), so every
+worker stays busy from first job to last.
 
-| Depth | Roughly | Notes |
-| --- | --- | --- |
-| 12 | ~3s | fast, but verdicts wobble |
-| 16 | ~30s | balanced |
-| 18 | ~60s | the default |
-| 22 | several minutes | deep study |
+| Depth | 45-move game | 64-move game | Notes |
+| --- | --- | --- | --- |
+| 12 | ~4s | ~6s | fast, verdicts wobble a little |
+| 14 | ~10s | ~9s | the default: the configuration every benchmark number was measured at |
+| 16 | ~25s | ~30s | accurate |
+| 18 | ~60s | ~90s | deep study |
+
+Sharp tactical games take longer than quiet ones at the same depth, because
+the search tree is genuinely bigger.
 
 Depth is the single biggest accuracy lever. Measured against Lichess's
 judgments, going from depth 10 to depth 14 moved recall from 56.9% to 65.9% and
 precision from 59.3% to 75.7%. Compare two reviews only if they ran at the same
-depth.
+depth. Reviews are deterministic for a given machine: the work split depends on
+the worker count, so a laptop with a different core count can differ in the
+last decimal of accuracy from another machine, but re-running on the same
+machine reproduces the same review exactly.
 
 ## Using the review
 
-- Click any move, or use **←** / **→**, **Home**, **End**. **f** flips.
+- Click any move, or use **←** / **→**, **Home**, **End**.
+- **Flip** (or **f**) switches which side faces you. Games loaded by username
+  orient automatically to that player's side. Flipping is pure display and
+  never re-analyses anything.
 - The eval graph marks every mistake and blunder; click to jump.
 - **Show me** steps back to the position as it was and draws two arrows.
 - **Retry** makes you find the better move yourself. Any move within 2 points

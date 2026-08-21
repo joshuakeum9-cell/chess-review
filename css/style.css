@@ -355,6 +355,13 @@ textarea {
   gap: 8px;
   align-items: center;
 }
+.flip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
 .analysis-bar {
   display: flex;
   align-items: center;

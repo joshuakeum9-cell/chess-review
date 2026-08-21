@@ -114,6 +114,15 @@ function setGame(parsed) {
   $('whiteName').textContent = h.White || 'White';
   $('blackName').textContent = h.Black || 'Black';
 
+  // When the game came from a username search, orient the board so that
+  // player's side faces them. Display only: flipping never re-analyses.
+  const me = (state.fetchedUser || '').toLowerCase();
+  if (me) {
+    if ((h.Black || '').toLowerCase() === me) state.flipped = true;
+    else if ((h.White || '').toLowerCase() === me) state.flipped = false;
+    board.setFlipped(state.flipped);
+  }
+
   renderPlayers();
   renderMoveList();
   renderPosition();
@@ -123,6 +132,7 @@ function setGame(parsed) {
 async function fetchOnlineGames() {
   const site = $('siteSelect').value;
   const user = $('usernameInput').value.trim();
+  state.fetchedUser = user;
   const list = $('gameList');
   showError('');
   list.innerHTML = '<li class="hint">Fetching…</li>';
@@ -243,7 +253,7 @@ async function runAnalysis() {
   try {
     await ensureEngine();
     await engine.newGame();
-    const depth = parseInt($('depthSelect').value, 10) || 16;
+    const depth = parseInt($('depthSelect').value, 10) || 14;
     state.depth = depth;
 
     const positions = await analysePositions(state.game, engine, {

@@ -60,9 +60,17 @@ function terminalEvaluation(board) {
   return { cp: 0, mate: null, lines: [], bestMove: null, terminal: 'draw' };
 }
 
-/* Analyse every position, then score every played move in its own frame. */
+/* Analyse every position, then score every played move in its own frame.
+ *
+ * Position searches and played-move searches go into ONE batch. Waiting for
+ * every position to finish before starting the played-move pass parks the
+ * whole pool at a barrier twice per game; scheduling the played-move jobs
+ * speculatively alongside costs a few cheap searches for moves whose score
+ * the MultiPV list would have covered anyway (the candidate entry is still
+ * preferred when it exists, since same-search numbers compare exactly), and
+ * keeps every worker busy from first job to last. */
 export async function analysePositions(game, pool, opts = {}) {
-  const { depth = 16, multipv = 3, onProgress, shouldStop } = opts;
+  const { depth = 14, multipv = 3, onProgress, shouldStop } = opts;
 
   const fens = [
     game.moves.length ? game.moves[0].fenBefore : game.startFen,
@@ -70,16 +78,27 @@ export async function analysePositions(game, pool, opts = {}) {
   ];
 
   const boards = fens.map((fen) => new Chess(fen));
-  const jobs = fens.map((fen, i) => (boards[i].isGameOver() ? null : { fen }));
 
+  // Theory plies never need a played-move score; their verdict is Book.
+  const theory = bookDepth(game.moves.map((m) => m.fenAfter));
+
+  const positionJobs = fens.map((fen, i) => (boards[i].isGameOver() ? null : { fen }));
+  const playedJobs = game.moves.map((move, i) =>
+    i + 1 <= theory || boards[i].isGameOver()
+      ? null
+      : { fen: move.fenBefore, searchmoves: [move.uci], multipv: 1 }
+  );
+
+  const jobs = [...positionJobs, ...playedJobs];
   const raws = await pool.analyseAll(jobs, {
     depth,
     multipv,
     shouldStop,
     onResult: (index, result, done) => {
-      if (onProgress) onProgress({ done, total: fens.length, phase: 'positions' });
+      if (onProgress) onProgress({ done, total: jobs.length, phase: 'positions' });
     },
   });
+  const playedRaws = raws.slice(fens.length);
 
   const results = [];
   for (let i = 0; i < fens.length; i++) {
@@ -149,46 +168,24 @@ export async function analysePositions(game, pool, opts = {}) {
     });
   }
 
-  await scorePlayedMoves(game, results, pool, { depth, onProgress, shouldStop });
-  return results;
-}
-
-/* Pass 2: score each played move inside its own position's search. */
-async function scorePlayedMoves(game, positions, pool, { depth, onProgress, shouldStop }) {
-  const jobs = new Array(game.moves.length).fill(null);
-  let pending = 0;
-
+  // Attach played-move scores. The candidate entry wins when the MultiPV
+  // list already scored the move, because those numbers come from the same
+  // search as the best move and compare exactly; the speculative searchmoves
+  // result covers everything else.
   for (let i = 0; i < game.moves.length; i++) {
-    const pos = positions[i];
+    const pos = results[i];
     if (!pos) continue;
     const played = game.moves[i].uci;
     const known = pos.candidates.find((c) => c.uci === played);
     if (known) {
       pos.playedScore = known;
-    } else if (pos.legalCount > 0) {
-      jobs[i] = { fen: pos.fen, searchmoves: [played], multipv: 1 };
-      pending++;
+      continue;
     }
-  }
-
-  if (!pending) return;
-
-  const scored = await pool.analyseAll(jobs, {
-    depth,
-    multipv: 1,
-    shouldStop,
-    onResult: (index, result, done) => {
-      if (onProgress) onProgress({ done, total: jobs.length, phase: 'moves' });
-    },
-  });
-
-  for (let i = 0; i < scored.length; i++) {
-    const top = scored[i] && scored[i].lines[0];
+    const top = playedRaws[i] && playedRaws[i].lines[0];
     if (!top) continue;
-    const pos = positions[i];
     const sign = pos.toMove === 'w' ? 1 : -1;
     pos.playedScore = {
-      uci: game.moves[i].uci,
+      uci: played,
       cp: top.cp,
       mate: top.mate ?? null,
       wdl: top.wdl || null,
@@ -201,6 +198,8 @@ async function scorePlayedMoves(game, positions, pool, { depth, onProgress, shou
       pv: top.pv || [],
     };
   }
+
+  return results;
 }
 
 /* Third pass: re-examine every move the first report flagged as an error, at

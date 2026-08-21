@@ -317,11 +317,13 @@ export class Engine {
 /* EnginePool                                                          */
 /* ------------------------------------------------------------------ */
 
-/* How many workers to run. One core is left for the page itself; capped
- * because each engine carries its own memory and past ~6 the returns fade. */
+/* How many workers to run. Two cores are left for the page and the OS. The
+ * old cap of 6 dated from the 38 MB-per-worker NNUE build; the current lite
+ * build is ~7 MB with a 16 MB hash, so on an 8-core-plus machine ten workers
+ * are cheap and whole-game analysis scales almost linearly with them. */
 export function defaultPoolSize() {
   const cores = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
-  return Math.max(2, Math.min(6, cores - 1));
+  return Math.max(2, Math.min(10, cores - 2));
 }
 
 export class EnginePool {
