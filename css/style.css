@@ -1,7 +1,7 @@
 /* style.css — dark analysis-board look. */
 
 :root {
-  --bg: #312e2b;
+  --bg: #302e2b;
   --bg-panel: #262421;
   --bg-panel-2: #2f2c28;
   --border: #3d3a35;
@@ -9,12 +9,13 @@
   --text-dim: #a8a29a;
   --accent: #81b64c;
   --accent-hover: #95d05a;
-  --sq-light: #eeeed2;
-  --sq-dark: #769656;
-  --sq-last: rgba(255, 213, 0, 0.42);
-  --sq-select: rgba(255, 213, 0, 0.55);
+  /* measured from chess.com's default green theme */
+  --sq-light: #ebecd0;
+  --sq-dark: #739552;
+  --sq-last: rgba(255, 255, 51, 0.5);
+  --sq-select: rgba(255, 255, 51, 0.6);
   --radius: 8px;
-  --white-bar: #f4f4f4;
+  --white-bar: #ffffff;
   --black-bar: #403d39;
 }
 
@@ -227,7 +228,7 @@ textarea {
 .board {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 5px;
+  border-radius: 3px;
   overflow: hidden;
 }
 .board-svg {
@@ -276,9 +277,11 @@ textarea {
   stroke: rgba(0, 0, 0, 0.22);
   stroke-width: 9;
 }
+/* Coordinates sit inside the squares in the inverse square colour, as on
+ * chess.com: cream text on green squares, green text on cream squares. */
 .coord {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   pointer-events: none;
 }
 .coord-light {
@@ -306,16 +309,17 @@ textarea {
   stroke-width: 3.5px;
 }
 
+/* Arrow colours measured from chess.com's analysis board: engine-suggestion
+ * green rgba(159,207,63,.8) at element opacity .8 (effective .64), and the
+ * blue for a second arrow. Polygons, so fill rather than stroke. */
 .arrow {
-  stroke-width: 13;
-  stroke-linecap: round;
-  opacity: 0.82;
+  opacity: 0.8;
 }
 .arrow-best {
-  stroke: #4a9c3a;
+  fill: rgba(159, 207, 63, 0.8);
 }
 .arrow-alt {
-  stroke: #4d7fa8;
+  fill: rgba(72, 193, 249, 0.8);
 }
 .badge-text {
   font-size: 22px;
@@ -678,13 +682,8 @@ textarea {
   width: 38px;
   height: 38px;
   flex: 0 0 38px;
-  border-radius: 50%;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  font-size: 17px;
-  color: #fff;
-  background: #81b64c;
 }
 .detail-title {
   font-weight: 700;
@@ -956,9 +955,21 @@ textarea {
   cursor: default;
 }
 .move-sym {
-  font-size: 12px;
-  font-weight: 800;
   min-width: 15px;
+  display: inline-flex;
+  align-items: center;
+}
+.chip-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex: none;
+}
+.cell-label .chip-icon {
+  margin-right: 7px;
+}
+.km-chip {
+  display: inline-flex;
+  flex: 0 0 20px;
 }
 .move-loss {
   margin-left: auto;

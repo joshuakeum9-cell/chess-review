@@ -11,6 +11,7 @@ import {
   expectedFromCp,
 } from './review.js';
 import { BoardView } from './board.js';
+import { chipHtml, classColor } from './icons.js';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -505,8 +506,7 @@ function moveCell(index) {
   const sym = document.createElement('span');
   sym.className = 'move-sym';
   if (meta) {
-    sym.textContent = meta.symbol;
-    sym.style.color = meta.color;
+    sym.innerHTML = chipHtml(reviewed.classification, 15);
   }
   const san = document.createElement('span');
   san.textContent = move.san;
@@ -576,9 +576,9 @@ function renderSummary() {
     .map((key) => {
       const meta = CLASSIFICATIONS[key];
       return `<tr class="is-row">
-        <td class="cell-count" style="color:${meta.color}">${stats.w.counts[key]}</td>
-        <td class="cell-label"><span class="chip" style="background:${meta.color}">${meta.symbol}</span>${meta.label}</td>
-        <td class="cell-count" style="color:${meta.color}">${stats.b.counts[key]}</td>
+        <td class="cell-count" style="color:${classColor(key)}">${stats.w.counts[key]}</td>
+        <td class="cell-label">${chipHtml(key, 17)}${meta.label}</td>
+        <td class="cell-count" style="color:${classColor(key)}">${stats.b.counts[key]}</td>
       </tr>`;
     })
     .join('');
@@ -640,7 +640,7 @@ function renderKeyMoments() {
     button.type = 'button';
     button.className = 'km-item';
     button.innerHTML =
-      `<span class="km-chip" style="background:${meta.color}">${meta.symbol}</span>` +
+      `<span class="km-chip">${chipHtml(move.classification, 20)}</span>` +
       `<span>${moveNo}${dots} ${escapeHtml(move.san)} · ${meta.label}</span>` +
       `<span class="km-cost">-${move.winLoss.toFixed(0)}%</span>`;
     button.addEventListener('click', () => {
@@ -680,11 +680,11 @@ function renderDetail(reviewed) {
 
   const meta = CLASSIFICATIONS[reviewed.classification];
   const badge = $('detailBadge');
-  badge.textContent = meta.symbol;
-  badge.style.background = meta.color;
+  badge.innerHTML = chipHtml(reviewed.classification, 38);
+  badge.style.background = 'transparent';
 
   $('detailTitle').textContent = meta.label;
-  $('detailTitle').style.color = meta.color;
+  $('detailTitle').style.color = classColor(reviewed.classification);
 
   const moveNo = Math.floor(reviewed.index / 2) + 1;
   const dots = reviewed.color === 'w' ? '.' : '...';
@@ -915,7 +915,7 @@ function renderGraph() {
     const y = expectedFromCp(after ? after.cpWhite : move.evalAfterWhite);
     dot.setAttribute('cy', H - (y / 100) * H);
     dot.setAttribute('r', 4);
-    dot.setAttribute('fill', CLASSIFICATIONS[move.classification].color);
+    dot.setAttribute('fill', classColor(move.classification));
     svg.append(dot);
   }
 
@@ -1017,8 +1017,9 @@ async function playExploratoryMove(chess, move) {
   const note = $('exploreNote');
   $('detailEmpty').hidden = true;
   $('detailBody').hidden = false;
-  $('detailBadge').textContent = '?';
-  $('detailBadge').style.background = '#6b7280';
+  $('detailBadge').innerHTML =
+    '<svg class="chip-icon" width="38" height="38" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#6b7280"/><text x="12" y="12.5" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="13" font-weight="800">?</text></svg>';
+  $('detailBadge').style.background = 'transparent';
   $('detailTitle').textContent = 'Exploring';
   $('detailTitle').style.color = '#c9c4bc';
   $('detailMove').textContent = state.explore.moves.map((m) => m.san).join(' ');

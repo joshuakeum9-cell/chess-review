@@ -20,16 +20,18 @@
 
 import { Chess, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from './chess.js';
 
+/* Colors follow the measured default review palette; the glyph drawings and
+ * chip rendering live in js/icons.js. */
 export const CLASSIFICATIONS = {
   brilliant: { label: 'Brilliant', symbol: '!!', color: '#26c2a3', rank: 0 },
   great: { label: 'Great', symbol: '!', color: '#749bbf', rank: 1 },
   best: { label: 'Best', symbol: '★', color: '#81b64c', rank: 2 },
-  excellent: { label: 'Excellent', symbol: '✓', color: '#81b64c', rank: 3 },
+  excellent: { label: 'Excellent', symbol: '👍', color: '#81b64c', rank: 3 },
   good: { label: 'Good', symbol: '✓', color: '#95b776', rank: 4 },
-  book: { label: 'Book', symbol: '▤', color: '#a88865', rank: 5 },
+  book: { label: 'Book', symbol: '▤', color: '#d5a47d', rank: 5 },
   forced: { label: 'Forced', symbol: '⭢', color: '#9c9c9c', rank: 6 },
   inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f7c631', rank: 7 },
-  miss: { label: 'Miss', symbol: '⨯', color: '#ff7769', rank: 8 },
+  miss: { label: 'Miss', symbol: '✕', color: '#ff7769', rank: 8 },
   mistake: { label: 'Mistake', symbol: '?', color: '#ffa459', rank: 9 },
   blunder: { label: 'Blunder', symbol: '??', color: '#fa412d', rank: 10 },
 };
@@ -432,20 +434,37 @@ export function accuracyFromSeries(series, startTurn = 'w') {
   return { white: gameAccuracy(white), black: gameAccuracy(black) };
 }
 
-/* A coarse performance band. Deliberately not presented as a rating. */
+/* Estimated game rating from accuracy, by linear interpolation between
+ * anchor points rather than coarse steps.
+ *
+ * The old step table ran about 250 Elo below what chess.com's Game Review
+ * shows for the same game. The anchors here are calibrated against real
+ * chess.com review output (accuracy 89.8 -> their 2100, 81.2 -> their 1900,
+ * verified on an actual reviewed game) with a plausible curve continued
+ * through the rest of the range. Still an estimate, not a rating: chess.com's
+ * own number also folds in factors accuracy alone cannot see. */
 export function performanceBand(accuracy) {
-  const table = [
-    [95, 2400],
+  const anchors = [
+    [99, 3000],
+    [96, 2600],
+    [93, 2300],
     [90, 2100],
-    [85, 1850],
-    [80, 1650],
-    [75, 1450],
-    [70, 1250],
-    [65, 1050],
-    [55, 850],
+    [85, 2000],
+    [81, 1900],
+    [75, 1700],
+    [68, 1450],
+    [60, 1200],
+    [50, 950],
+    [0, 650],
   ];
-  for (const [threshold, rating] of table) {
-    if (accuracy >= threshold) return rating;
+  if (accuracy >= anchors[0][0]) return anchors[0][1];
+  for (let i = 0; i + 1 < anchors.length; i++) {
+    const [hiA, hiR] = anchors[i];
+    const [loA, loR] = anchors[i + 1];
+    if (accuracy >= loA) {
+      const t = (accuracy - loA) / (hiA - loA);
+      return Math.round((loR + t * (hiR - loR)) / 50) * 50;
+    }
   }
   return 650;
 }

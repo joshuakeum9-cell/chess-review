@@ -2,12 +2,16 @@
  * classification badge that pops on the square you just moved to. */
 
 import { Chess } from './chess.js';
-import { CLASSIFICATIONS } from './review.js';
+import { chipSvg, classColor } from './icons.js';
 
 const SIZE = 100; // one square in SVG user units
 const FILES = 'abcdefgh';
 
+/* Fallback glyphs for the unlikely case the piece images fail to load. */
 const GLYPHS = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+
+/* Standard open-licensed piece set (Cburnett, via lichess; see README). */
+const PIECE_SRC = (color, type) => `assets/pieces/${color}${type.toUpperCase()}.svg`;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -47,9 +51,7 @@ export class BoardView {
       this.badgeLayer
     );
 
-    const defs = el('defs');
-    defs.append(this._arrowHead('arrow-best', '#4a9c3a'), this._arrowHead('arrow-alt', '#4d7fa8'));
-    this.svg.append(defs);
+    // Arrows are self-contained polygons; no marker defs needed.
 
     container.innerHTML = '';
     container.append(this.svg);
@@ -177,12 +179,12 @@ export class BoardView {
       // The from/to squares carry the verdict's colour, so a blunder turns the
       // board red and a brilliancy turns it teal — you read the game at a
       // glance without looking at the sidebar.
-      const meta = this.badge ? CLASSIFICATIONS[this.badge.classification] : null;
+      const tint = this.badge ? classColor(this.badge.classification) : null;
       for (const sq of [this.lastMove.from, this.lastMove.to]) {
         const { x, y } = this._xy(sq);
         const rect = el('rect', { x, y, width: SIZE, height: SIZE, class: 'sq-last' });
-        if (meta) {
-          rect.setAttribute('fill', meta.color);
+        if (tint) {
+          rect.setAttribute('fill', tint);
           rect.setAttribute('fill-opacity', '0.5');
         }
         this.markLayer.append(rect);
@@ -232,19 +234,36 @@ export class BoardView {
       for (const cell of row) {
         if (!cell) continue;
         const { x, y } = this._xy(cell.square);
-        const text = el('text', {
-          x: x + SIZE / 2,
-          y: y + SIZE / 2,
-          class: `piece piece-${cell.color}`,
-          'text-anchor': 'middle',
-          'dominant-baseline': 'central',
+        const image = el('image', {
+          x: x + SIZE * 0.02,
+          y: y + SIZE * 0.02,
+          width: SIZE * 0.96,
+          height: SIZE * 0.96,
+          class: 'piece-img',
         });
-        text.textContent = GLYPHS[cell.type];
-        this.pieceLayer.append(text);
+        image.setAttribute('href', PIECE_SRC(cell.color, cell.type));
+        // If the SVG asset cannot load, fall back to a text glyph so the
+        // board never shows an empty square.
+        image.addEventListener('error', () => {
+          const text = el('text', {
+            x: x + SIZE / 2,
+            y: y + SIZE / 2,
+            class: `piece piece-${cell.color}`,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'central',
+          });
+          text.textContent = GLYPHS[cell.type];
+          image.replaceWith(text);
+        });
+        this.pieceLayer.append(image);
       }
     }
   }
 
+  /* Arrows drawn as a single polygon per arrow, with the proportions
+   * measured from chess.com's analysis board: shaft 22% of a square wide,
+   * head 52% wide and 36% long, tail starting 36% of a square from the
+   * origin square's centre. */
   _renderArrows() {
     this.arrowLayer.innerHTML = '';
     for (const arrow of this.arrows) {
@@ -257,18 +276,37 @@ export class BoardView {
       const dx = x2 - x1;
       const dy = y2 - y1;
       const len = Math.hypot(dx, dy) || 1;
-      // stop short of the centre so the head sits on the edge of the square
-      const trim = SIZE * 0.34;
-      const ex = x2 - (dx / len) * trim;
-      const ey = y2 - (dy / len) * trim;
+      const ux = dx / len;
+      const uy = dy / len;
+      const px = -uy; // perpendicular
+      const py = ux;
+
+      const tail = SIZE * 0.36;
+      const shaftHalf = SIZE * 0.11;
+      const headLen = SIZE * 0.36;
+      const headHalf = SIZE * 0.26;
+
+      const sx = x1 + ux * tail;
+      const sy = y1 + uy * tail;
+      const hx = x2 - ux * headLen;
+      const hy = y2 - uy * headLen;
+
+      const points = [
+        [sx + px * shaftHalf, sy + py * shaftHalf],
+        [hx + px * shaftHalf, hy + py * shaftHalf],
+        [hx + px * headHalf, hy + py * headHalf],
+        [x2, y2],
+        [hx - px * headHalf, hy - py * headHalf],
+        [hx - px * shaftHalf, hy - py * shaftHalf],
+        [sx - px * shaftHalf, sy - py * shaftHalf],
+      ]
+        .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
+        .join(' ');
+
       this.arrowLayer.append(
-        el('line', {
-          x1,
-          y1,
-          x2: ex,
-          y2: ey,
+        el('polygon', {
+          points,
           class: `arrow arrow-${arrow.kind || 'best'}`,
-          'marker-end': `url(#arrow-${arrow.kind || 'best'})`,
         })
       );
     }
@@ -277,24 +315,8 @@ export class BoardView {
   _renderBadge() {
     this.badgeLayer.innerHTML = '';
     if (!this.badge) return;
-    const meta = CLASSIFICATIONS[this.badge.classification];
-    if (!meta) return;
     const { x, y } = this._xy(this.badge.square);
-    const cx = x + SIZE - 12;
-    const cy = y + 12;
-    const group = el('g', { class: 'badge-pop' });
-    group.append(
-      el('circle', { cx, cy, r: 21, fill: meta.color, stroke: '#ffffff', 'stroke-width': 3 })
-    );
-    const label = el('text', {
-      x: cx,
-      y: cy + 1,
-      class: 'badge-text',
-      'text-anchor': 'middle',
-      'dominant-baseline': 'central',
-    });
-    label.textContent = meta.symbol;
-    group.append(label);
-    this.badgeLayer.append(group);
+    const group = chipSvg(document, this.badge.classification, x + SIZE - 12, y + 12, 21);
+    if (group) this.badgeLayer.append(group);
   }
 }

@@ -307,6 +307,16 @@ depth.
 | `bench/` | Engine, classifier and threshold benchmarks |
 | `test/` | perft and classifier unit tests |
 
+## Credits
+
+- Chess pieces: the Cburnett SVG set (Colin M.L. Burnett, CC-BY-SA / GFDL /
+  BSD), as distributed by lichess. chess.com's own piece artwork is
+  proprietary and is deliberately not copied; the board colours, arrow tones
+  and badge palette match chess.com's default theme, which are plain colour
+  values.
+- Openings: the Lichess ECO dataset (CC0).
+- Engine: Stockfish (GPL-3), see `vendor/LICENSE-NOTE.md`.
+
 ## A note on scope
 
 This analyses games that are **already finished**. It is deliberately not a
