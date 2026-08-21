@@ -151,14 +151,27 @@ textarea {
 }
 
 /* ---------------------------------------------------------------- layout */
+/* Three columns: the Game Report stays put on the left while the board sits
+ * in the middle and the move-by-move review on the right. Fills the window
+ * instead of floating in a narrow strip. */
 .layout {
   display: grid;
-  grid-template-columns: minmax(340px, 1fr) minmax(360px, 460px);
-  gap: 24px;
-  padding: 22px;
+  grid-template-columns: minmax(300px, 380px) minmax(440px, 1fr) minmax(400px, 520px);
+  gap: 26px;
+  padding: 22px 28px;
   align-items: start;
-  max-width: 1400px;
+  max-width: 1920px;
   margin: 0 auto;
+}
+@media (max-width: 1280px) {
+  .layout {
+    grid-template-columns: minmax(420px, 1fr) minmax(380px, 480px);
+  }
+  .report-column {
+    grid-column: 1 / -1;
+    order: 3;
+    position: static;
+  }
 }
 @media (max-width: 980px) {
   .layout {
@@ -166,13 +179,22 @@ textarea {
   }
 }
 
+.report-column {
+  min-width: 0;
+  position: sticky;
+  top: 16px;
+}
+
 .board-column {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  width: 100%;
   /* Keep the board, its controls and the analyse bar inside the window on a
      laptop screen, so nothing important sits below the fold. */
-  max-width: min(100%, calc(100vh - 250px));
+  max-width: min(100%, calc(100vh - 190px));
+  margin: 0 auto;
 }
 .board-wrap {
   display: flex;
@@ -235,6 +257,14 @@ textarea {
   display: block;
   width: 100%;
   height: 100%;
+  /* Pointer-based drag needs the browser not to hijack touches for scroll. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+.piece-img {
+  user-select: none;
 }
 .player-strip {
   height: 26px;
@@ -268,14 +298,6 @@ textarea {
 }
 .sq-check {
   fill: rgba(232, 60, 46, 0.55);
-}
-.dot-move {
-  fill: rgba(0, 0, 0, 0.22);
-}
-.dot-capture {
-  fill: none;
-  stroke: rgba(0, 0, 0, 0.22);
-  stroke-width: 9;
 }
 /* Coordinates sit inside the squares in the inverse square colour, as on
  * chess.com: cream text on green squares, green text on cream squares. */
@@ -366,6 +388,12 @@ textarea {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.depth-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.45;
 }
 .depth-field {
   display: flex;
@@ -637,12 +665,6 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-.report-cta {
-  width: 100%;
-  margin-top: 16px;
-  padding: 11px;
-  font-size: 15px;
-}
 
 /* ---------------------------------------------------------------- graph */
 .graph-panel {
@@ -773,31 +795,6 @@ textarea {
   min-width: 130px;
 }
 
-/* -------------------------------------------------------- retry mode */
-.retry-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 7px;
-  background: #3a4429;
-  border: 1px solid #4d5c34;
-  flex-wrap: wrap;
-}
-.retry-bar.is-right {
-  background: #33461f;
-  border-color: var(--accent);
-}
-.retry-bar.is-wrong {
-  background: #4a2b26;
-  border-color: #8d4a3f;
-}
-.retry-text {
-  flex: 1;
-  font-size: 13.5px;
-  font-weight: 600;
-  min-width: 180px;
-}
 .detail-line {
   margin-top: 10px;
   padding-top: 10px;

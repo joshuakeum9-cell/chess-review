@@ -68,60 +68,9 @@
 
     <!-- ------------------------------------------------------------------ -->
     <main class="layout">
-      <section class="board-column">
-        <div class="board-wrap">
-          <div class="evalbar" id="evalBar" title="Evaluation">
-            <div class="evalbar-black"></div>
-            <div class="evalbar-white" id="evalBarWhite"></div>
-            <span class="evalbar-label" id="evalBarLabel">0.00</span>
-          </div>
-          <div class="board-holder">
-            <div class="player-strip" id="topPlayer"><span class="pname">Black</span></div>
-            <div id="board" class="board"></div>
-            <div class="player-strip" id="bottomPlayer"><span class="pname">White</span></div>
-          </div>
-        </div>
-
-        <div class="controls">
-          <button id="flipBtn" class="btn btn-ghost flip-btn" title="Switch which side faces you (shortcut: f)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h13l-3.5-3.5M21 16H8l3.5 3.5"/></svg>
-            Flip
-          </button>
-          <button id="firstBtn" class="btn btn-icon" title="Start (Home)">⏮</button>
-          <button id="prevBtn" class="btn btn-icon" title="Previous (←)">◀</button>
-          <button id="nextBtn" class="btn btn-icon" title="Next (→)">▶</button>
-          <button id="lastBtn" class="btn btn-icon" title="End (End)">⏭</button>
-          <button id="reportBtn" class="btn btn-ghost" hidden>Game Report</button>
-          <button id="exitExploreBtn" class="btn btn-ghost" hidden>Back to game</button>
-        </div>
-
-        <div class="retry-bar" id="retryBar" hidden>
-          <span class="retry-text" id="retryText">Your turn. Find the better move.</span>
-          <button id="retryHintBtn" class="btn btn-ghost">Show solution</button>
-          <button id="retryExitBtn" class="btn btn-ghost">Cancel</button>
-        </div>
-
-        <div class="analysis-bar">
-          <label class="depth-field">
-            Depth
-            <select id="depthSelect" class="select select-sm">
-              <option value="12">12 (fast)</option>
-              <option value="14" selected>14 (balanced)</option>
-              <option value="16">16 (accurate)</option>
-              <option value="18">18 (deep)</option>
-            </select>
-          </label>
-          <button id="analyseBtn" class="btn btn-primary" disabled>Analyse game</button>
-          <button id="cancelBtn" class="btn btn-ghost" hidden>Stop</button>
-        </div>
-        <div class="progress" id="progressWrap" hidden>
-          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-          <span class="progress-text" id="progressText"></span>
-        </div>
-      </section>
-
-      <!-- ---------------------------------------------------------------- -->
-      <section class="side-column">
+      <!-- The Game Report lives on the left and stays on screen while you
+           step through the moves on the right. -->
+      <section class="report-column">
         <div class="panel report-panel" id="summaryPanel" hidden>
           <div class="report-head">
             <h2>Game Report</h2>
@@ -152,13 +101,60 @@
             <span class="km-label">Key moments</span>
             <div class="km-list" id="keyMomentsList"></div>
           </div>
+        </div>
+      </section>
 
-          <button id="startReviewBtn" class="btn btn-primary report-cta">
-            Start review
-          </button>
+      <section class="board-column">
+        <div class="board-wrap">
+          <div class="evalbar" id="evalBar" title="Evaluation">
+            <div class="evalbar-black"></div>
+            <div class="evalbar-white" id="evalBarWhite"></div>
+            <span class="evalbar-label" id="evalBarLabel">0.00</span>
+          </div>
+          <div class="board-holder">
+            <div class="player-strip" id="topPlayer"><span class="pname">Black</span></div>
+            <div id="board" class="board"></div>
+            <div class="player-strip" id="bottomPlayer"><span class="pname">White</span></div>
+          </div>
         </div>
 
-        <div class="panel graph-panel" id="graphPanel" hidden>
+        <div class="controls">
+          <button id="flipBtn" class="btn btn-ghost flip-btn" title="Switch which side faces you (shortcut: f)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h13l-3.5-3.5M21 16H8l3.5 3.5"/></svg>
+            Flip
+          </button>
+          <button id="firstBtn" class="btn btn-icon" title="Start (Home)">⏮</button>
+          <button id="prevBtn" class="btn btn-icon" title="Previous (←)">◀</button>
+          <button id="nextBtn" class="btn btn-icon" title="Next (→)">▶</button>
+          <button id="lastBtn" class="btn btn-icon" title="End (End)">⏭</button>
+          <button id="exitExploreBtn" class="btn btn-ghost" hidden>Back to game</button>
+        </div>
+
+        <div class="analysis-bar">
+          <label class="depth-field">
+            Depth
+            <select id="depthSelect" class="select select-sm">
+              <option value="12">12 · Fastest, least accurate</option>
+              <option value="14" selected>14 · Balanced (recommended)</option>
+              <option value="16">16 · Slower, more accurate</option>
+              <option value="18">18 · Slowest, most accurate</option>
+            </select>
+          </label>
+          <button id="analyseBtn" class="btn btn-primary" disabled>Analyse game</button>
+          <button id="cancelBtn" class="btn btn-ghost" hidden>Stop</button>
+        </div>
+        <p class="depth-hint">
+          Deeper analysis is noticeably more accurate but takes longer. Depth 14
+          reviews most games in seconds; use 16 or 18 when a game really matters.
+        </p>
+        <div class="progress" id="progressWrap" hidden>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <span class="progress-text" id="progressText"></span>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- -->
+      <section class="side-column"><div class="panel graph-panel" id="graphPanel" hidden>
           <svg id="evalGraph" class="eval-graph" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
         </div>
 

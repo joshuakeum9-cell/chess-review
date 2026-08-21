@@ -37,13 +37,15 @@ const state = {
   cancelRequested: false,
   explore: null,
   pinnedArrows: null,
-  retry: null,
 };
 
 const engine = new EnginePool();
 let engineReady = null;
 
-const board = new BoardView($('board'), { onSquareClick: handleSquareClick });
+const board = new BoardView($('board'), {
+  onSquareClick: handleSquareClick,
+  onDragMove: (from, to) => tryUserMove(from, to),
+});
 
 /* ------------------------------------------------------------------ */
 /* engine boot                                                         */
@@ -99,12 +101,9 @@ function setGame(parsed) {
   state.ply = 0;
   state.explore = null;
   state.pinnedArrows = null;
-  state.retry = null;
 
   $('analyseBtn').disabled = false;
   $('summaryPanel').hidden = true;
-  $('reportBtn').hidden = true;
-  $('retryBar').hidden = true;
   $('graphPanel').hidden = true;
   $('enginePanel').hidden = true;
   $('detailEmpty').hidden = false;
@@ -293,7 +292,7 @@ async function runAnalysis() {
     renderMoveList();
     goToPly(0);
     // Chess.com shows you the report card first, then you step into the game.
-    showReport();
+    $('summaryPanel').hidden = false;
   } catch (err) {
     showTransientError(err.message || String(err));
   } finally {
@@ -450,7 +449,7 @@ function renderEngineLines() {
 
 /* Click an engine line to walk into it from the current position. */
 async function previewCandidate(cand) {
-  if (!cand.uci || state.retry) return;
+  if (!cand.uci) return;
   const chess = new Chess(fenAtPly(state.ply));
   const legal = chess.moves({ verbose: true }).find((m) => m.uci === cand.uci);
   if (!legal) return;
@@ -654,22 +653,10 @@ function renderKeyMoments() {
       `<span>${moveNo}${dots} ${escapeHtml(move.san)} · ${meta.label}</span>` +
       `<span class="km-cost">-${move.winLoss.toFixed(0)}%</span>`;
     button.addEventListener('click', () => {
-      hideReport();
       goToPly(move.index + 1);
     });
     list.append(button);
   }
-}
-
-function showReport() {
-  if (!state.report) return;
-  $('summaryPanel').hidden = false;
-  $('reportBtn').hidden = true;
-}
-
-function hideReport() {
-  $('summaryPanel').hidden = true;
-  $('reportBtn').hidden = false;
 }
 
 function renderDetail(reviewed) {
@@ -713,138 +700,13 @@ function renderDetail(reviewed) {
   actions.innerHTML = '';
   if (['inaccuracy', 'mistake', 'blunder', 'miss'].includes(reviewed.classification)) {
     actions.hidden = false;
-
-    const retry = document.createElement('button');
-    retry.className = 'btn btn-primary';
-    retry.textContent = 'Retry this move';
-    retry.addEventListener('click', () => startRetry(reviewed));
-
     const show = document.createElement('button');
     show.className = 'btn btn-ghost';
     show.textContent = `Show me ${reviewed.bestSan || 'the better move'}`;
     show.addEventListener('click', () => showBetterMove(reviewed));
-
-    actions.append(retry, show);
+    actions.append(show);
   } else {
     actions.hidden = true;
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/* retry mode: rewind to before the error and make the user find the   */
-/* engine move (or any move at most 2% worse) on the board.            */
-/* ------------------------------------------------------------------ */
-
-function startRetry(reviewed) {
-  state.explore = null;
-  state.pinnedArrows = null;
-  state.retry = { reviewed, solved: false, tries: 0 };
-  state.ply = reviewed.index;
-
-  const fen = fenAtPly(reviewed.index);
-  board.setPosition(fen, { checkSquare: checkSquareFor(new Chess(fen)) });
-  board.setArrows([]);
-
-  $('retryBar').hidden = false;
-  $('retryBar').className = 'retry-bar';
-  $('retryText').textContent = `You played ${reviewed.san}. Find the better move for ${
-    reviewed.color === 'w' ? 'White' : 'Black'
-  }.`;
-  updateEvalBarFromPly(reviewed.index);
-  highlightCurrentMove();
-}
-
-function endRetry() {
-  state.retry = null;
-  $('retryBar').hidden = true;
-  renderPosition();
-}
-
-/* What did this attempt cost, compared with the engine's move? Returns win%
- * lost, or null if we genuinely cannot tell. */
-async function retryAttemptCost(reviewed, move) {
-  const pos = state.positions[reviewed.index];
-  const bestWin = pos.expected;
-
-  // Fast path: the position's own search already scored this move, so the
-  // two numbers come from the same search and compare exactly.
-  const line = (pos.candidates || []).find((c) => c.uci === move.uci);
-  if (line) return bestWin - line.expected;
-
-  // Otherwise the move fell outside the candidate list — ask the engine
-  // rather than assuming it is bad.
-  const after = new Chess(fenAtPly(reviewed.index));
-  if (!after.move(move.uci)) return null;
-
-  if (after.isGameOver()) {
-    // Delivering mate is not a mistake; a stalemate throws the game away.
-    return after.isCheckmate() ? 0 : bestWin - 50;
-  }
-
-  const res = await engine.analyseOne(after.fen(), {
-    depth: state.depth || 16,
-    multipv: 1,
-  });
-  const top = res.lines[0];
-  if (!top) return null;
-  // The score is from the opponent's point of view in the new position, so
-  // flip it back to the mover's.
-  const flipped = top.wdl
-    ? { win: top.wdl.loss, draw: top.wdl.draw, loss: top.wdl.win }
-    : null;
-  const mine = flipped
-    ? (flipped.win + flipped.draw / 2) / 10
-    : expectedFromCp(-top.cp);
-  return bestWin - mine;
-}
-
-async function handleRetryMove(chess, move) {
-  const retry = state.retry;
-  const reviewed = retry.reviewed;
-  retry.tries++;
-
-  const bar = $('retryBar');
-  const isEngineChoice =
-    move.uci === reviewed.bestMove || move.san === reviewed.bestSan;
-
-  // Anything nearly as good as the engine move also counts — there is often
-  // more than one right answer.
-  let goodEnough = isEngineChoice;
-  let cost = null;
-  if (!goodEnough) {
-    $('retryText').textContent = `Checking ${move.san}…`;
-    cost = await retryAttemptCost(reviewed, move);
-    if (state.retry !== retry) return; // they navigated away mid-check
-    goodEnough = cost !== null && cost <= 2;
-  }
-
-  if (goodEnough) {
-    retry.solved = true;
-    bar.className = 'retry-bar is-right';
-    $('retryText').textContent = isEngineChoice
-      ? `${move.san} is exactly it. That is the engine's move.`
-      : `${move.san} works too. It is practically as strong as ${reviewed.bestSan}.`;
-    retry.solvedSan = move.san;
-    const played = new Chess(fenAtPly(reviewed.index));
-    played.move(move.uci);
-    board.setPosition(played.fen(), {
-      lastMove: { from: move.fromSquare, to: move.toSquare },
-      classification: 'best',
-      checkSquare: checkSquareFor(played),
-    });
-  } else {
-    bar.className = 'retry-bar is-wrong';
-    const costText =
-      cost === null ? '' : ` It gives up about ${Math.max(0, cost).toFixed(0)}% more.`;
-    $('retryText').textContent =
-      retry.tries >= 3
-        ? `${move.san} isn't it either.${costText} Hint: the move starts on ${
-            reviewed.bestMove ? reviewed.bestMove.slice(0, 2) : '…'
-          }.`
-        : `${move.san} isn't the one.${costText} Try again.`;
-    // reset the position so they can try again
-    const fen = fenAtPly(reviewed.index);
-    board.setPosition(fen, { checkSquare: checkSquareFor(new Chess(fen)) });
   }
 }
 
@@ -962,11 +824,6 @@ function goToPly(ply) {
   if (!state.game) return;
   state.explore = null;
   state.pinnedArrows = null;
-  if (state.retry) {
-    state.retry = null;
-    $('retryBar').hidden = true;
-  }
-  if (state.report && !$('summaryPanel').hidden) hideReport();
   $('exitExploreBtn').hidden = true;
   state.ply = Math.max(0, Math.min(state.game.moves.length, ply));
   renderPosition();
@@ -982,33 +839,36 @@ function updateEvalBarFromPly(ply) {
 async function handleSquareClick(square) {
   if (!state.game) return;
 
-  const chess = state.retry
-    ? new Chess(fenAtPly(state.retry.reviewed.index))
-    : state.explore
-      ? state.explore.chess
-      : new Chess(fenAtPly(state.ply));
+  const chess = state.explore ? state.explore.chess : new Chess(fenAtPly(state.ply));
   const piece = chess.get(square);
 
   if (board.selected && board.selected !== square) {
     const legal = chess.moves({ verbose: true, square: board.selected });
     const target = legal.find((m) => m.toSquare === square);
     if (target) {
-      board.setSelection(null, []);
-      if (state.retry && !state.retry.solved) {
-        await handleRetryMove(chess, target);
-      } else if (!state.retry) {
-        await playExploratoryMove(chess, target);
-      }
+      board.setSelection(null);
+      await playExploratoryMove(chess, target);
       return;
     }
   }
 
   if (piece && piece.color === chess.turn) {
-    const dests = chess.moves({ verbose: true, square }).map((m) => m.toSquare);
-    board.setSelection(square, dests);
+    board.setSelection(square);
   } else {
-    board.setSelection(null, []);
+    board.setSelection(null);
   }
+}
+
+/* Drag-and-drop lands here: same rules as click-to-move, one gesture. */
+async function tryUserMove(fromSquare, toSquare) {
+  if (!state.game) return;
+  const chess = state.explore ? state.explore.chess : new Chess(fenAtPly(state.ply));
+  const legal = chess
+    .moves({ verbose: true, square: fromSquare })
+    .find((m) => m.toSquare === toSquare);
+  if (!legal) return;
+  board.setSelection(null);
+  await playExploratoryMove(chess, legal);
 }
 
 async function playExploratoryMove(chess, move) {
@@ -1021,7 +881,7 @@ async function playExploratoryMove(chess, move) {
   state.explore.moves.push(made);
 
   $('exitExploreBtn').hidden = false;
-  board.setSelection(null, []);
+  board.setSelection(null);
   renderPosition();
 
   const note = $('exploreNote');
@@ -1071,7 +931,7 @@ async function playExploratoryMove(chess, move) {
 function exitExplore() {
   state.explore = null;
   $('exitExploreBtn').hidden = true;
-  board.setSelection(null, []);
+  board.setSelection(null);
   renderPosition();
 }
 
@@ -1174,18 +1034,6 @@ $('lastBtn').addEventListener('click', () =>
   goToPly(state.game ? state.game.moves.length : 0)
 );
 $('exitExploreBtn').addEventListener('click', exitExplore);
-$('reportBtn').addEventListener('click', showReport);
-$('startReviewBtn').addEventListener('click', () => {
-  hideReport();
-  goToPly(state.game && state.game.moves.length ? 1 : 0);
-});
-$('retryExitBtn').addEventListener('click', endRetry);
-$('retryHintBtn').addEventListener('click', () => {
-  if (!state.retry) return;
-  const reviewed = state.retry.reviewed;
-  endRetry();
-  showBetterMove(reviewed);
-});
 
 document.addEventListener('keydown', (event) => {
   if (event.target.matches('input, textarea, select')) return;
