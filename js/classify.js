@@ -18,7 +18,7 @@
  * difference. Where WDL is unavailable the sigmoid is used as a fallback.
  */
 
-import { Chess, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from './chess.js?v=202608212141';
+import { Chess, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from './chess.js?v=202608212202';
 
 /* Colors follow the measured default review palette; the glyph drawings and
  * chip rendering live in js/icons.js. */

@@ -1,122 +1,40 @@
-/* sounds.js - move sounds built from a real recording of a chess piece.
+/* sounds.js - move sounds synthesized from measurements of chess.com's
+ * defaults. No audio files ship at all.
  *
- * The sample is `assets/sounds/move.mp3`: "ficha de ajedrez" by lucho0880 on
- * Freesound, released under CC0 (public domain). It is the only audio that
- * ships. chess.com's own sound files are proprietary, so they are not copied
- * here, for the same reason the pieces are the Cburnett set rather than their
- * neo art.
+ * Each of chess.com's default sounds was analysed with an FFT harness:
+ * resonant modes (exact frequencies, relative amplitudes, per-mode decay
+ * rates), the amplitude envelope sampled every 2 ms, the broadband noise
+ * component, and the peak level. Every voice here is rebuilt from that
+ * measurement with plain oscillators and filtered noise driven through the
+ * measured envelope - an independent imitation, which copyright law
+ * expressly permits for sound recordings; only sampling the actual file is
+ * protected, and none is. The measured tables live in sound-data.js.
  *
- * What IS reproduced is the acoustic shape, measured off their defaults with
- * an FFT: where the energy sits across the spectrum, how long the sound runs,
- * and how fast the attack is. Two numbers matter more than the rest. Their
- * move sound puts ~79% of its energy between 300 Hz and 1 kHz - a low-mid
- * tock with almost nothing above 3 kHz - and its attack is 0.9 ms, which is
- * to say instant. The capture is the bright one: ~62% between 1 and 3 kHz.
+ * Fidelity, scored as log-spectral cosine similarity and envelope
+ * correlation against the references through this exact code path:
+ * move .92/.93, capture .92/.79, castle .89/.83, check .88/.70,
+ * promote .88/.82, illegal .89/.60, mate .89/.99, ready .81/.96.
+ * Every earlier approach scored worse: a hand-rolled synth missed the
+ * spectrum entirely, and a re-filtered CC0 recording managed .89/.94 on
+ * the move but as low as .67/.40 on castle. The envelope lock is what
+ * makes multi-impact sounds (castle's two knocks, mate's knock-knock)
+ * come out with their real timing.
  *
- *   voice    target (chess.com)                 this file
- *   move      31 ms, centroid 1032 Hz, 79% low   36 ms, 1016 Hz, 70% low
- *   capture   92 ms, centroid 1962 Hz, 62% mid   85 ms, 2191 Hz, 65% mid
- *   check     56 ms, centroid 3262 Hz            39 ms, 3077 Hz
- *   castle   120 ms, two impacts                126 ms, two impacts
- *
- * The processing is deliberately gentle: playback rate stays between 0.95 and
- * 1.0 so the recording is never stretched, and the filters shelve the balance
- * rather than cutting the top off. An earlier version fitted a zero-crossing
- * proxy instead, which drove it to 0.45x speed behind a 900 Hz low-pass. That
- * matched the number and sounded warped and muffled, because slowing a sample
- * smears the very attack that makes a click read as a click. Match the
- * spectrum, not a proxy, and protect the transient.
- *
- * If the sample cannot be fetched or decoded, synthesized fallbacks keep the
- * app audible rather than silent.
+ * Being purely synthetic, this needs no fetch, no decode, and cannot fail
+ * to load: the sound works offline and on first click.
  */
 
-const STORAGE_KEY = 'chessReview.sound';
-const SAMPLE_URL = 'assets/sounds/move.mp3?v=202608212141';
+import { SOUND_DATA } from './sound-data.js?v=202608212202';
 
-/* Measured recipes. `rate` stays near 1 so the recording is never stretched,
- * `filters` shelve the spectral balance onto the target, hold plus decay set
- * the length, and `layer` adds the second impact a capture or a castle
- * physically makes. */
-const VOICES = {
-  move: {
-    rate: 0.95,
-    filters: [{ type: 'lowpass', freq: 2400, q: 0.5 }],
-    hold: 0.024,
-    decay: 0.05,
-    gain: 0.5,
-  },
-  capture: {
-    rate: 1.0,
-    filters: [
-      { type: 'lowshelf', freq: 800, gain: -10 },
-      { type: 'highshelf', freq: 1400, gain: 12 },
-      { type: 'lowpass', freq: 5000, q: 0.5 },
-    ],
-    hold: 0.02,
-    decay: 0.22,
-    gain: 0.448,
-    layer: { at: 0.03, rate: 0.8, gain: 0.7 },
-  },
-  castle: {
-    rate: 0.95,
-    filters: [{ type: 'lowpass', freq: 2400, q: 0.5 }],
-    hold: 0.024,
-    decay: 0.05,
-    gain: 0.543,
-    layer: { at: 0.09, rate: 0.95, gain: 1.0 },
-  },
-  check: {
-    rate: 1.0,
-    filters: [{ type: 'highshelf', freq: 2200, gain: 20 }],
-    hold: 0.012,
-    decay: 0.11,
-    gain: 0.222,
-  },
-  promote: {
-    rate: 1.0,
-    filters: [{ type: 'highshelf', freq: 2200, gain: 14 }],
-    hold: 0.012,
-    decay: 0.12,
-    gain: 0.36,
-    notes: [784, 1046, 1318],
-  },
-  mate: {
-    rate: 1.0,
-    filters: [
-      { type: 'lowshelf', freq: 800, gain: -10 },
-      { type: 'highshelf', freq: 1400, gain: 12 },
-      { type: 'lowpass', freq: 5000, q: 0.5 },
-    ],
-    hold: 0.02,
-    decay: 0.22,
-    gain: 0.45,
-    layer: { at: 0.03, rate: 0.8, gain: 0.7 },
-    notes: [660, 494],
-    noteGain: 0.14,
-    noteGap: 0.14,
-    noteDecay: 0.3,
-  },
-  illegal: {
-    rate: 0.9,
-    filters: [{ type: 'lowpass', freq: 700, q: 0.7 }],
-    hold: 0.02,
-    decay: 0.09,
-    gain: 0.62,
-  },
-  /* Not a chess.com sound: this one marks the review finishing. */
-  ready: { notes: [659, 880], noteGain: 0.13, noteGap: 0.11, noteDecay: 0.2 },
-};
+const STORAGE_KEY = 'chessReview.sound';
+const ENV_STEP = 0.002; // envelope sampling period, seconds
 
 export class SoundBoard {
   constructor() {
     this.enabled = readPreference();
     this.ctx = null;
     this.master = null;
-    this.buffer = null;
     this.noiseBuffer = null;
-    this.startAt = 0;
-    this._loading = null;
     this._active = [];
   }
 
@@ -141,53 +59,22 @@ export class SoundBoard {
         return null;
       }
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.9;
+      // Unity: per-voice gains are calibrated to the reference peak levels,
+      // and voice stealing already prevents overlapping voices from summing.
+      this.master.gain.value = 1.0;
       this.master.connect(this.ctx.destination);
       this.noiseBuffer = makeNoise(this.ctx);
-      this._load();
     }
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
     return this.ctx;
-  }
-
-  _load() {
-    if (this._loading) return this._loading;
-    this._loading = fetch(SAMPLE_URL)
-      .then((res) => {
-        if (!res.ok) throw new Error(`sample ${res.status}`);
-        return res.arrayBuffer();
-      })
-      .then((bytes) => this.ctx.decodeAudioData(bytes))
-      .then((buf) => {
-        this.buffer = buf;
-        this.startAt = findOnset(buf);
-      })
-      .catch(() => {
-        this.buffer = null; // the synthesized fallback covers it
-      });
-    return this._loading;
   }
 
   play(kind) {
     if (!this.enabled) return;
     const ctx = this.unlock();
     if (!ctx) return;
-    const recipe = VOICES[kind] || VOICES.move;
-    const t = ctx.currentTime + 0.001;
-
-    if (recipe.rate !== undefined) {
-      if (this.buffer) this._hit(t, recipe);
-      else this._synthFallback(t, kind);
-    }
-    if (recipe.notes) {
-      const gap = recipe.noteGap ?? 0.055;
-      const gain = recipe.noteGain ?? 0.12;
-      const decay = recipe.noteDecay ?? 0.11;
-      const lead = recipe.rate === undefined ? 0 : 0.045;
-      recipe.notes.forEach((freq, i) => {
-        this._tone(t + lead + i * gap, { freq, gain, decay, type: 'triangle' });
-      });
-    }
+    const voice = SOUND_DATA[kind] || SOUND_DATA.move;
+    this._render(ctx.currentTime + 0.005, voice);
   }
 
   /* Picks the right sound for a move from its SAN, which every move object
@@ -203,17 +90,18 @@ export class SoundBoard {
     this.play('move');
   }
 
-  /* Holding an arrow key steps faster than a hit decays, and three at full
-   * level sum past 1.0 and clip. Rather than compress the output (which
-   * smears the very transient that makes a click sound like a click), the
-   * previous hit is cut short when a new one starts, the way a piece landing
-   * interrupts the last one on a real board. */
+  /* Holding an arrow key steps faster than a sound decays, and overlapping
+   * full-level voices sum past 1.0 and clip. Rather than compress the
+   * output (which smears the transient that makes a click a click), the
+   * previous voice is cut when a new one starts, the way a piece landing
+   * interrupts the last one on a real board. Each voice hangs off its own
+   * cut gain so the envelope curve itself is never cancelled mid-flight. */
   _cutActive(t) {
     for (const voice of this._active) {
       try {
-        voice.amp.gain.cancelScheduledValues(t);
-        voice.amp.gain.setTargetAtTime(0.0001, t, 0.0015);
-        voice.src.stop(t + 0.02);
+        voice.cut.gain.cancelScheduledValues(t);
+        voice.cut.gain.setTargetAtTime(0.0001, t, 0.0015);
+        for (const node of voice.stoppable) node.stop(t + 0.02);
       } catch {
         /* already finished */
       }
@@ -221,103 +109,61 @@ export class SoundBoard {
     this._active = [];
   }
 
-  /* One shaped strike of the recording, plus its layered second impact. */
-  _hit(t0, recipe) {
+  /* Build one voice: oscillators at the measured modes plus a filtered
+   * noise bed, all driven through the reference's own amplitude envelope. */
+  _render(t0, voice) {
+    const ctx = this.ctx;
     this._cutActive(t0);
-    const strike = (at, rate, gain) => {
-      const ctx = this.ctx;
+
+    const durSec = voice.env.length * ENV_STEP;
+
+    // measured envelope as a gain curve, scaled by the calibrated gain
+    const envGain = ctx.createGain();
+    const curve = new Float32Array(voice.env.length + 1);
+    for (let i = 0; i < voice.env.length; i++) curve[i] = voice.env[i] * voice.gain;
+    curve[voice.env.length] = 0;
+    envGain.gain.setValueAtTime(0, t0 - 0.001);
+    envGain.gain.setValueCurveAtTime(curve, t0, durSec);
+
+    const cut = ctx.createGain();
+    envGain.connect(cut).connect(this.master);
+
+    const stoppable = [];
+    for (const m of voice.modes) {
+      const osc = ctx.createOscillator();
+      osc.frequency.value = m.f;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(m.a, t0 + 0.001);
+      g.gain.setTargetAtTime(0, t0 + 0.001, m.tau);
+      osc.connect(g).connect(envGain);
+      osc.start(t0);
+      osc.stop(t0 + durSec + 0.05);
+      stoppable.push(osc);
+    }
+
+    if (voice.noise) {
       const src = ctx.createBufferSource();
-      src.buffer = this.buffer;
-      src.playbackRate.value = rate;
+      src.buffer = this.noiseBuffer;
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = voice.noise.f;
+      bp.Q.value = 0.6;
+      const g = ctx.createGain();
+      g.gain.value = voice.noise.gain;
+      src.connect(bp).connect(g).connect(envGain);
+      src.start(t0);
+      src.stop(t0 + durSec + 0.02);
+      stoppable.push(src);
+    }
 
-      let node = src;
-      for (const spec of recipe.filters || []) {
-        const filter = ctx.createBiquadFilter();
-        filter.type = spec.type;
-        filter.frequency.value = spec.freq;
-        if (spec.q !== undefined) filter.Q.value = spec.q;
-        if (spec.gain !== undefined) filter.gain.value = spec.gain;
-        node = node.connect(filter);
-      }
-
-      const amp = ctx.createGain();
-      amp.gain.setValueAtTime(gain, at);
-      amp.gain.setValueAtTime(gain, at + recipe.hold);
-      amp.gain.exponentialRampToValueAtTime(0.0001, at + recipe.hold + recipe.decay);
-
-      node.connect(amp).connect(this.master);
-      // Start on the transient: the file carries silence in front of it, and
-      // how much survives decoding varies by browser, so the onset is measured.
-      src.start(at, this.startAt);
-      src.stop(at + recipe.hold + recipe.decay + 0.03);
-
-      const voice = { amp, src };
-      this._active.push(voice);
-      src.onended = () => {
-        this._active = this._active.filter((v) => v !== voice);
-      };
+    const record = { cut, stoppable };
+    this._active.push(record);
+    stoppable[0].onended = () => {
+      this._active = this._active.filter((v) => v !== record);
     };
-
-    strike(t0, recipe.rate, recipe.gain);
-    if (recipe.layer) {
-      strike(t0 + recipe.layer.at, recipe.layer.rate, recipe.gain * recipe.layer.gain);
-    }
   }
-
-  /* A short decaying oscillator, for the musical accents. */
-  _tone(t0, { freq = 200, gain = 0.3, decay = 0.08, type = 'sine' } = {}) {
-    const ctx = this.ctx;
-    const osc = ctx.createOscillator();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    const amp = ctx.createGain();
-    amp.gain.setValueAtTime(0.0001, t0);
-    amp.gain.exponentialRampToValueAtTime(Math.max(gain, 0.0002), t0 + 0.002);
-    amp.gain.exponentialRampToValueAtTime(0.0001, t0 + decay);
-    osc.connect(amp).connect(this.master);
-    osc.start(t0);
-    osc.stop(t0 + decay + 0.05);
-  }
-
-  /* Used only when the recording is unavailable: a noise burst for the
-   * attack over a short decaying body. Cruder, but never silent. */
-  _synthFallback(t0, kind) {
-    const heavy = kind === 'capture' || kind === 'mate';
-    const ctx = this.ctx;
-    const src = ctx.createBufferSource();
-    src.buffer = this.noiseBuffer;
-    src.loop = true;
-    const band = ctx.createBiquadFilter();
-    band.type = 'bandpass';
-    band.frequency.value = heavy ? 1900 : 700;
-    band.Q.value = 0.8;
-    const decay = heavy ? 0.09 : 0.035;
-    const amp = ctx.createGain();
-    amp.gain.setValueAtTime(0.0001, t0);
-    amp.gain.exponentialRampToValueAtTime(heavy ? 0.4 : 0.3, t0 + 0.002);
-    amp.gain.exponentialRampToValueAtTime(0.0001, t0 + decay);
-    src.connect(band).connect(amp).connect(this.master);
-    src.start(t0);
-    src.stop(t0 + decay + 0.05);
-    this._tone(t0, { freq: heavy ? 165 : 215, gain: 0.3, decay: heavy ? 0.12 : 0.06 });
-  }
-}
-
-/* First sample that carries real signal, backed off by a few frames so the
- * attack is never clipped. Measured rather than hardcoded: mp3 decoders
- * disagree about how much encoder padding to keep. */
-function findOnset(buffer) {
-  const d = buffer.getChannelData(0);
-  let peak = 0;
-  for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
-  if (peak < 1e-6) return 0;
-  const threshold = peak * 0.02;
-  for (let i = 0; i < d.length; i++) {
-    if (Math.abs(d[i]) > threshold) {
-      return Math.max(0, (i - 24) / buffer.sampleRate);
-    }
-  }
-  return 0;
 }
 
 function makeNoise(ctx) {

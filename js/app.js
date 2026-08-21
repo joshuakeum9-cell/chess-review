@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608212141';
-import { EnginePool } from './engine.js?v=202608212141';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608212202';
+import { EnginePool } from './engine.js?v=202608212202';
 import {
   analysePositions,
   analysePosition,
@@ -11,10 +11,10 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608212141';
-import { BoardView } from './board.js?v=202608212141';
-import { chipHtml, classColor } from './icons.js?v=202608212141';
-import { SoundBoard } from './sounds.js?v=202608212141';
+} from './review.js?v=202608212202';
+import { BoardView } from './board.js?v=202608212202';
+import { chipHtml, classColor } from './icons.js?v=202608212202';
+import { SoundBoard } from './sounds.js?v=202608212202';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]

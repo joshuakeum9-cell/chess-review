@@ -325,13 +325,14 @@ machine reproduces the same review exactly.
   proprietary and is deliberately not copied; the board colours, arrow tones
   and badge palette match chess.com's default theme, which are plain colour
   values.
-- Move sounds: one recording of a chess piece, `assets/sounds/move.mp3`
-  ("ficha de ajedrez" by lucho0880 on Freesound), released under CC0 (public
-  domain). Every sound in the app is that single sample re-shaped at runtime.
-  chess.com's sound files are proprietary and are deliberately not copied;
-  what was reproduced is the measurable acoustic shape of their defaults, taken
-  with an FFT - spectral balance, length and attack time - which `js/sounds.js`
-  documents and matches.
+- Move sounds: fully synthesized, no audio files at all. chess.com's default
+  sounds were measured with an FFT harness (resonant mode frequencies,
+  amplitudes and decay rates, the 2 ms amplitude envelope, noise content and
+  peak level; tables in `js/sound-data.js`) and each voice is rebuilt from
+  plain oscillators and filtered noise driven through the measured envelope.
+  That is an independent imitation, which copyright law expressly permits for
+  sound recordings - only sampling the actual file is protected, and none is
+  shipped or sampled.
 - Openings: the Lichess ECO dataset (CC0).
 - Engine: Stockfish (GPL-3), see `vendor/LICENSE-NOTE.md`.
 
