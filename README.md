@@ -69,8 +69,10 @@ touch `parseInfo` in `js/engine.js`, mirror it in `bench/engine-node.mjs`.
 
 ## Loading a game
 
-- **Paste PGN** from Chess.com, Lichess, or a database.
-- **Chess.com / Lichess** by username, pulling recent public games.
+- **Paste PGN** from any site or database.
+- **Chess.com** by username, pulling recent public games (walks monthly
+  archives until it has 20 playable ones; variants without replayable PGNs
+  are skipped).
 - **Upload a .pgn** file; multi-game files give you a list.
 
 ## How a move gets its verdict

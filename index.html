@@ -10,7 +10,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
     />
-    <link rel="stylesheet" href="css/style.css?v=202608212202" />
+    <link rel="stylesheet" href="css/style.css?v=202608212211" />
   </head>
   <body class="theme-dark">
     <header class="topbar">
@@ -35,7 +35,7 @@
 
         <div class="tabs" role="tablist">
           <button type="button" class="tab is-active" data-tab="pgn">Paste PGN</button>
-          <button type="button" class="tab" data-tab="online">From Chess.com / Lichess</button>
+          <button type="button" class="tab" data-tab="online">From Chess.com</button>
           <button type="button" class="tab" data-tab="file">Upload file</button>
         </div>
 
@@ -51,14 +51,10 @@
 
         <section class="tab-panel" data-panel="online">
           <div class="field-row">
-            <select id="siteSelect" class="select">
-              <option value="chesscom">Chess.com</option>
-              <option value="lichess">Lichess</option>
-            </select>
-            <input id="usernameInput" class="input" type="text" placeholder="username" />
+            <input id="usernameInput" class="input" type="text" placeholder="chess.com username" />
             <button type="button" id="fetchGamesBtn" class="btn btn-primary">Fetch recent</button>
           </div>
-          <p class="hint">Pulls your most recent public games straight from the site's API.</p>
+          <p class="hint">Pulls your most recent public games straight from chess.com's API.</p>
           <ul id="gameList" class="game-list"></ul>
         </section>
 
@@ -192,7 +188,7 @@
           <div class="detail-empty" id="detailEmpty">
             <h2>No game loaded</h2>
             <p>
-              Load a PGN or pull a game from Chess.com or Lichess, then hit
+              Load a PGN or pull a game from Chess.com, then hit
               <strong>Analyse game</strong>. You'll get an evaluation bar, a
               verdict on every move, and the line you should have played.
             </p>
@@ -257,6 +253,6 @@
       </section>
     </main>
 
-    <script type="module" src="js/app.js?v=202608212202"></script>
+    <script type="module" src="js/app.js?v=202608212211"></script>
   </body>
 </html>

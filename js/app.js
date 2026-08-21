@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608212202';
-import { EnginePool } from './engine.js?v=202608212202';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608212211';
+import { EnginePool } from './engine.js?v=202608212211';
 import {
   analysePositions,
   analysePosition,
@@ -11,10 +11,10 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608212202';
-import { BoardView } from './board.js?v=202608212202';
-import { chipHtml, classColor } from './icons.js?v=202608212202';
-import { SoundBoard } from './sounds.js?v=202608212202';
+} from './review.js?v=202608212211';
+import { BoardView } from './board.js?v=202608212211';
+import { chipHtml, classColor } from './icons.js?v=202608212211';
+import { SoundBoard } from './sounds.js?v=202608212211';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -90,6 +90,9 @@ function showError(message) {
 }
 
 function loadGameFromPgn(pgnText) {
+  if (typeof pgnText !== 'string' || !pgnText.trim()) {
+    throw new Error('This game has no PGN attached.');
+  }
   const games = splitPgnGames(pgnText);
   if (!games.length) throw new Error('No PGN found in that text.');
   const parsed = parsePgn(games[0]);
@@ -141,7 +144,6 @@ function setGame(parsed) {
 }
 
 async function fetchOnlineGames() {
-  const site = $('siteSelect').value;
   const user = $('usernameInput').value.trim();
   state.fetchedUser = user;
   const list = $('gameList');
@@ -149,50 +151,48 @@ async function fetchOnlineGames() {
   list.innerHTML = '<li class="hint">Fetching…</li>';
 
   try {
-    let games = [];
-    if (site === 'chesscom') {
-      const archivesRes = await fetch(
-        `https://api.chess.com/pub/player/${encodeURIComponent(user)}/games/archives`
-      );
-      if (!archivesRes.ok) throw new Error(`Chess.com returned ${archivesRes.status}`);
-      const archives = (await archivesRes.json()).archives || [];
-      if (!archives.length) throw new Error('No games found for that username.');
-      const monthRes = await fetch(archives[archives.length - 1]);
+    const games = [];
+    const archivesRes = await fetch(
+      `https://api.chess.com/pub/player/${encodeURIComponent(user)}/games/archives`
+    );
+    if (archivesRes.status === 404) throw new Error('No chess.com account with that username.');
+    if (archivesRes.status === 429)
+      throw new Error('Chess.com is rate-limiting this connection. Wait a minute and try again.');
+    if (!archivesRes.ok) throw new Error(`Chess.com returned ${archivesRes.status}.`);
+    const archives = (await archivesRes.json()).archives || [];
+    if (!archives.length) throw new Error('That account has no games yet.');
+
+    // Walk the monthly archives newest-first until 20 playable games are
+    // in hand. One month is not enough: early in a month an account has
+    // played only a couple of games, the newest archive URL itself
+    // sometimes 404s for very active accounts, and variant games
+    // (bughouse, chess960...) either carry no PGN at all or use rules this
+    // replayer cannot step through, so they are skipped rather than shown
+    // as games that break on click.
+    for (
+      let i = archives.length - 1;
+      i >= 0 && i >= archives.length - 6 && games.length < 20;
+      i--
+    ) {
+      const monthRes = await fetch(archives[i]);
+      if (!monthRes.ok) continue;
       const monthly = (await monthRes.json()).games || [];
-      games = monthly
-        .slice(-20)
-        .reverse()
-        .map((g) => ({
+      for (let j = monthly.length - 1; j >= 0 && games.length < 20; j--) {
+        const g = monthly[j];
+        if (typeof g.pgn !== 'string' || !g.pgn.trim()) continue;
+        if (g.rules && g.rules !== 'chess') continue;
+        games.push({
           pgn: g.pgn,
           white: g.white && g.white.username,
           black: g.black && g.black.username,
           result: describeChesscomResult(g),
           when: g.end_time ? new Date(g.end_time * 1000).toLocaleDateString() : '',
           mode: g.time_class || '',
-        }));
-    } else {
-      const res = await fetch(
-        `https://lichess.org/api/games/user/${encodeURIComponent(user)}?max=20`,
-        { headers: { Accept: 'application/x-chess-pgn' } }
-      );
-      if (!res.ok) throw new Error(`Lichess returned ${res.status}`);
-      const text = await res.text();
-      games = splitPgnGames(text).map((pgn) => {
-        const head = Object.fromEntries(
-          [...pgn.matchAll(/\[(\w+)\s+"([^"]*)"\]/g)].map((m) => [m[1], m[2]])
-        );
-        return {
-          pgn,
-          white: head.White,
-          black: head.Black,
-          result: head.Result,
-          when: head.UTCDate || head.Date || '',
-          mode: head.Event || '',
-        };
-      });
+        });
+      }
     }
 
-    if (!games.length) throw new Error('No games found for that username.');
+    if (!games.length) throw new Error('No playable games found for that account.');
     list.innerHTML = '';
     for (const g of games) {
       const li = document.createElement('li');
@@ -213,7 +213,17 @@ async function fetchOnlineGames() {
     }
   } catch (err) {
     list.innerHTML = '';
-    showError(`${err.message}. Check the username, or paste the PGN instead.`);
+    // A TypeError from fetch is the network/CORS layer failing, not a bad
+    // username; blaming the username there sent people down the wrong path.
+    // Messages that already say what to do stand alone; the username hint
+    // only helps when the username may actually be the problem.
+    showError(
+      err instanceof TypeError
+        ? 'Could not reach the site. Check your connection and try again, or paste the PGN instead.'
+        : /again\.$/.test(err.message)
+          ? err.message
+          : `${err.message} Check the username, or paste the PGN instead.`
+    );
   }
 }
 
