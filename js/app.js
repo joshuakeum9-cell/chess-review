@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js';
-import { EnginePool } from './engine.js';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608210513';
+import { EnginePool } from './engine.js?v=202608210513';
 import {
   analysePositions,
   verifyFlaggedMoves,
@@ -9,9 +9,9 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js';
-import { BoardView } from './board.js';
-import { chipHtml, classColor } from './icons.js';
+} from './review.js?v=202608210513';
+import { BoardView } from './board.js?v=202608210513';
+import { chipHtml, classColor } from './icons.js?v=202608210513';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -120,6 +120,7 @@ function setGame(parsed) {
     if ((h.Black || '').toLowerCase() === me) state.flipped = true;
     else if ((h.White || '').toLowerCase() === me) state.flipped = false;
     board.setFlipped(state.flipped);
+    $('evalBar').classList.toggle('is-flipped', state.flipped);
   }
 
   renderPlayers();
@@ -481,6 +482,9 @@ function updateEvalBar(cpWhite, mateWhite) {
   const label = formatEval(cpWhite, mateWhite);
   $('evalBarLabel').textContent = label;
   $('evalBar').classList.toggle('is-black-ahead', pct < 50);
+  // The bar's orientation follows the board: flipped board, flipped bar,
+  // so White's share is always on White's side of the screen.
+  $('evalBar').classList.toggle('is-flipped', state.flipped);
 }
 
 function renderMoveList() {
@@ -1026,6 +1030,8 @@ $('flipBtn').addEventListener('click', () => {
   state.flipped = !state.flipped;
   board.setFlipped(state.flipped);
   renderPlayers();
+  // Keep the eval bar oriented with the board.
+  $('evalBar').classList.toggle('is-flipped', state.flipped);
 });
 $('firstBtn').addEventListener('click', () => goToPly(0));
 $('prevBtn').addEventListener('click', () => goToPly(state.ply - 1));
@@ -1056,6 +1062,7 @@ document.addEventListener('keydown', (event) => {
       state.flipped = !state.flipped;
       board.setFlipped(state.flipped);
       renderPlayers();
+      $('evalBar').classList.toggle('is-flipped', state.flipped);
       break;
     default:
       break;

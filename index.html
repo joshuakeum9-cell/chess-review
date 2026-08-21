@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Game Review: chess analysis</title>
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css?v=202608210513" />
   </head>
   <body>
     <header class="topbar">
@@ -17,6 +17,7 @@
       </div>
       <div class="topbar-actions">
         <span id="engineStatus" class="engine-status">Engine: idle</span>
+        <a href="about.html" class="btn btn-ghost topbar-link">About</a>
         <button id="newGameBtn" class="btn btn-ghost">Load a game</button>
       </div>
     </header>
@@ -112,17 +113,19 @@
             <span class="evalbar-label" id="evalBarLabel">0.00</span>
           </div>
           <div class="board-holder">
-            <div class="player-strip" id="topPlayer"><span class="pname">Black</span></div>
+            <div class="strip-row">
+              <div class="player-strip" id="topPlayer"><span class="pname">Black</span></div>
+              <button id="flipBtn" class="btn btn-ghost flip-btn" title="Switch which side faces you (shortcut: f)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h13l-3.5-3.5M21 16H8l3.5 3.5"/></svg>
+                Flip board
+              </button>
+            </div>
             <div id="board" class="board"></div>
             <div class="player-strip" id="bottomPlayer"><span class="pname">White</span></div>
           </div>
         </div>
 
         <div class="controls">
-          <button id="flipBtn" class="btn btn-ghost flip-btn" title="Switch which side faces you (shortcut: f)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h13l-3.5-3.5M21 16H8l3.5 3.5"/></svg>
-            Flip
-          </button>
           <button id="firstBtn" class="btn btn-icon" title="Start (Home)">⏮</button>
           <button id="prevBtn" class="btn btn-icon" title="Previous (←)">◀</button>
           <button id="nextBtn" class="btn btn-icon" title="Next (→)">▶</button>
@@ -215,6 +218,6 @@
       </section>
     </main>
 
-    <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/app.js?v=202608210513"></script>
   </body>
 </html>

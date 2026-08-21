@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>About · Game Review</title>
+    <meta
+      name="description"
+      content="A free, private chess game reviewer that runs Stockfish in your browser: verdicts on every move, accuracy scores, and coaching explanations."
+    />
+    <link rel="stylesheet" href="css/style.css?v=202608210513" />
+    <style>
+      .about-wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+      .about-hero {
+        text-align: center;
+        padding: 24px 0 40px;
+      }
+      .about-hero h1 {
+        font-size: 40px;
+        margin: 0 0 14px;
+        letter-spacing: -0.02em;
+      }
+      .about-hero .lede {
+        font-size: 17px;
+        color: var(--text-dim);
+        line-height: 1.65;
+        max-width: 640px;
+        margin: 0 auto 26px;
+      }
+      .cta-row {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .cta-row .btn {
+        padding: 12px 22px;
+        font-size: 15px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .about-section {
+        margin-top: 44px;
+      }
+      .about-section h2 {
+        font-size: 22px;
+        margin: 0 0 12px;
+      }
+      .about-section p {
+        line-height: 1.7;
+        color: #d8d4cd;
+        margin: 0 0 14px;
+        font-size: 15px;
+      }
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+      .feature {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .feature h3 {
+        margin: 0 0 8px;
+        font-size: 14.5px;
+      }
+      .feature p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--text-dim);
+        line-height: 1.55;
+      }
+      .quiet {
+        color: var(--text-dim);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">♞</span>
+        <div>
+          <h1>Game Review</h1>
+          <p class="tagline">Stockfish runs in your browser. Nothing leaves your machine.</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a href="index.html" class="btn btn-primary topbar-link">Open the analyser</a>
+      </div>
+    </header>
+
+    <main class="about-wrap">
+      <section class="about-hero">
+        <h1>Understand every move you play</h1>
+        <p class="lede">
+          Game Review is a free chess analysis tool I built to do what premium
+          game review products do: take a finished game, grade every single
+          move, show you exactly where it went wrong, and teach you the move
+          you should have played instead. It runs entirely in your browser,
+          costs nothing, needs no account, and never uploads your games
+          anywhere.
+        </p>
+        <div class="cta-row">
+          <a href="index.html" class="btn btn-primary">Analyse a game</a>
+          <a href="https://github.com/joshuakeum9-cell/chess-review" class="btn btn-ghost">View the code</a>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <h2>Why I built this</h2>
+        <p>
+          The fastest way to improve at chess is not playing more games. It is
+          understanding the games you already played: which moves threw away
+          the win, which tactic you walked past, which "safe" move quietly
+          handed over the position. The tools that do this well sit behind
+          subscriptions, and the free tiers ration how many games you can
+          review.
+        </p>
+        <p>
+          I wanted that feedback loop to be free for anyone who is trying to
+          get better, and I wanted to find out how much of a premium review
+          experience one person could build from first principles. So I built
+          the whole pipeline myself: the chess rules engine, the move
+          classification logic, the accuracy model, and the coaching
+          explanations, with Stockfish 17 doing the raw calculation in a pool
+          of web workers on your own machine.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>What it does</h2>
+        <div class="feature-grid">
+          <div class="feature">
+            <h3>A verdict on every move</h3>
+            <p>Brilliant, Great, Best, Excellent, Good, Book, Inaccuracy, Mistake, Miss, and Blunder, with the badge popping right on the board square.</p>
+          </div>
+          <div class="feature">
+            <h3>Accuracy and game report</h3>
+            <p>An accuracy score for each player, an estimated game rating, phase-by-phase breakdowns, and the key moments that decided the game.</p>
+          </div>
+          <div class="feature">
+            <h3>Coaching, not jargon</h3>
+            <p>Every flagged move gets a plain-English explanation grounded in the position: what hangs, what the punishing reply is, and the line that was better.</p>
+          </div>
+          <div class="feature">
+            <h3>Deep verification</h3>
+            <p>Any move flagged as an error is re-checked at greater depth before you see the verdict, so false accusations are rare by design.</p>
+          </div>
+          <div class="feature">
+            <h3>Explore freely</h3>
+            <p>Drag pieces to test your own ideas and ask the engine, draw arrows and highlights to think out loud, flip the board to either point of view.</p>
+          </div>
+          <div class="feature">
+            <h3>Fast and private</h3>
+            <p>A full game reviews in seconds. The engine runs in your browser, so your games never leave your computer.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <h2>Built from scratch, measured against the best</h2>
+        <p>
+          This project is also a piece of engineering I am proud of. The move
+          generator is validated with perft against the standard reference
+          positions. The classifier was benchmarked ply-by-ply against
+          Lichess's published judgments across thousands of positions, and the
+          accuracy model tracks the numbers the major sites report to within a
+          couple of points on real games. When something disagreed, I chased
+          down which side was right and kept the receipts in the repository's
+          benchmark suite.
+        </p>
+        <p class="quiet">
+          Engine: Stockfish 17.1 (GPL). Pieces: Cburnett set (CC BY-SA).
+          Openings: the Lichess ECO dataset, 3,810 named lines. Everything
+          else: written by hand.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>Who made this</h2>
+        <p>
+          I am Joshua Keum. I like taking things that feel locked behind a
+          paywall or a big company and rebuilding them from first principles
+          to see how close one focused person can get. This is one of those
+          projects: part chess improvement tool, part proof of what careful
+          engineering and honest benchmarking can do. If it helps you spot the
+          move you keep missing, it did its job.
+        </p>
+        <div class="cta-row" style="justify-content: flex-start">
+          <a href="index.html" class="btn btn-primary">Try it on one of your games</a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

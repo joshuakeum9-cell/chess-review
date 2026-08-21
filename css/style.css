@@ -377,12 +377,43 @@ textarea {
   gap: 8px;
   align-items: center;
 }
+/* The flip button lives right beside the top player's name, where "which
+ * side faces me" is the question it answers. */
+.strip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 .flip-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 5px 11px;
+  font-size: 12.5px;
+  border-color: #4a463f;
+}
+.topbar-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Eval bar orientation follows the board: when the board is flipped, White's
+ * share of the bar sits at the top, exactly as the pieces do. */
+.evalbar.is-flipped .evalbar-white {
+  bottom: auto;
+  top: 0;
+}
+.evalbar.is-flipped .evalbar-label {
+  bottom: auto;
+  top: 3px;
+  color: #2a2724;
+}
+.evalbar.is-flipped.is-black-ahead .evalbar-label {
+  top: auto;
+  bottom: 3px;
+  color: #ececec;
 }
 .analysis-bar {
   display: flex;
