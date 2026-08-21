@@ -1,36 +1,57 @@
-/* style.css — dark analysis-board look. */
+/* style.css — NVIDIA-system chrome (DESIGN-nvidia.md): paper-white canvas,
+ * black nav chapter, a single green accent #76b900, 2px radii, hairline
+ * borders, weight-built hierarchy in Inter. The board itself keeps its
+ * measured chess.com look: that is the product, this is the frame. */
 
 :root {
-  --bg: #302e2b;
-  --bg-panel: #262421;
-  --bg-panel-2: #2f2c28;
-  --border: #3d3a35;
-  --text: #ececec;
-  --text-dim: #a8a29a;
-  --accent: #81b64c;
-  --accent-hover: #95d05a;
-  /* measured from chess.com's default green theme */
+  --primary: #76b900;
+  --primary-dark: #5a8d00;
+  --on-primary: #000000;
+  --ink: #000000;
+  --canvas: #ffffff;
+  --surface-dark: #000000;
+  --surface-soft: #f7f7f7;
+  --surface-elevated: #1a1a1a;
+  --hairline: #cccccc;
+  --hairline-strong: #5e5e5e;
+  --body: #1a1a1a;
+  --mute: #757575;
+  --stone: #898989;
+  --ash: #a7a7a7;
+  --on-dark: #ffffff;
+  --on-dark-mute: rgba(255, 255, 255, 0.7);
+  --link-blue: #0046a4;
+  --error: #e52020;
+
+  /* board: measured chess.com default theme, unchanged */
   --sq-light: #ebecd0;
   --sq-dark: #739552;
   --sq-last: rgba(255, 255, 51, 0.5);
   --sq-select: rgba(255, 255, 51, 0.6);
-  --radius: 8px;
   --white-bar: #ffffff;
   --black-bar: #403d39;
+
+  --r: 2px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* The hidden attribute must beat every display rule below (.progress,
+ * .detail-line and friends set display: flex). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
-  font-size: 15px;
+  background: var(--canvas);
+  color: var(--body);
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  font-size: 16px;
 }
 
 button,
@@ -42,130 +63,193 @@ textarea {
 }
 
 /* ---------------------------------------------------------------- topbar */
+/* The black primary-nav chapter. */
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 22px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  height: 64px;
+  padding: 0 40px;
+  background: var(--surface-dark);
+  color: var(--on-dark);
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 .brand-mark {
-  font-size: 30px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
   line-height: 1;
-  color: var(--accent);
+  color: var(--on-primary);
+  background: var(--primary);
+  border-radius: var(--r);
 }
 .topbar h1 {
   margin: 0;
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--on-dark);
+  letter-spacing: 0;
 }
 .tagline {
-  margin: 2px 0 0;
-  font-size: 12.5px;
-  color: var(--text-dim);
+  margin: 1px 0 0;
+  font-size: 12px;
+  color: var(--on-dark-mute);
 }
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 .engine-status {
-  font-size: 12.5px;
-  color: var(--text-dim);
+  font-size: 12px;
+  color: var(--on-dark-mute);
   font-variant-numeric: tabular-nums;
 }
 .engine-status.is-ready {
-  color: var(--accent);
+  color: var(--primary);
+  font-weight: 700;
 }
 .engine-status.is-error {
-  color: #fa8072;
+  color: #ff6b5f;
+}
+@media (max-width: 760px) {
+  .topbar {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    /* 20px matches the mobile .shell gutter on the about page. */
+    padding: 8px 20px;
+  }
+  .tagline {
+    display: none;
+  }
+  .topbar h1 {
+    font-size: 16px;
+  }
+  .topbar-actions {
+    gap: 8px;
+  }
+  .topbar .btn {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
 }
 
 /* ---------------------------------------------------------------- buttons */
 .btn {
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 8px 14px;
+  border: 2px solid transparent;
+  border-radius: var(--r);
+  padding: 10px 22px;
   cursor: pointer;
-  font-weight: 600;
-  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.25;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 .btn:disabled {
-  opacity: 0.45;
+  background: var(--surface-soft);
+  color: var(--ash);
+  border-color: transparent;
   cursor: not-allowed;
 }
 .btn-primary {
-  background: var(--accent);
-  color: #1a2110;
+  background: var(--primary);
+  color: var(--on-primary);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--primary-dark);
 }
 .btn-ghost {
-  background: var(--bg-panel-2);
-  color: var(--text);
-  border-color: var(--border);
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--primary);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: #3a3630;
+  background: rgba(118, 185, 0, 0.08);
+}
+.topbar .btn-ghost {
+  color: var(--on-dark);
+  border-color: var(--on-dark);
+}
+.topbar .btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
 }
 .btn-icon {
-  background: var(--bg-panel-2);
-  color: var(--text);
-  border-color: var(--border);
-  padding: 8px 13px;
-  font-size: 15px;
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  padding: 9px 14px;
+  font-size: 14px;
   line-height: 1;
 }
 .btn-icon:hover:not(:disabled) {
-  background: #3a3630;
+  background: var(--surface-soft);
+}
+.topbar-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
 .input,
 .select,
 textarea {
-  background: #1b1a18;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 8px 10px;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  color: var(--ink);
+  padding: 11px 16px;
+}
+.input:focus,
+.select:focus,
+textarea:focus {
+  outline: none;
+  border: 2px solid var(--primary);
+  padding: 10px 15px;
 }
 textarea {
   width: 100%;
   resize: vertical;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: Consolas, 'Cascadia Mono', monospace;
   font-size: 13px;
   line-height: 1.5;
 }
 .select-sm {
-  padding: 5px 8px;
-  font-size: 13px;
+  padding: 8px 10px;
+  font-size: 14px;
 }
 
 /* ---------------------------------------------------------------- layout */
-/* Three columns: the Game Report stays put on the left while the board sits
- * in the middle and the move-by-move review on the right. Fills the window
- * instead of floating in a narrow strip. */
+/* Fills the window edge to edge with structured gutters: report chapter on
+ * the left, board centre, review right. */
 .layout {
   display: grid;
-  grid-template-columns: minmax(300px, 380px) minmax(440px, 1fr) minmax(400px, 520px);
-  gap: 26px;
-  padding: 22px 28px;
+  grid-template-columns: minmax(280px, 420px) minmax(430px, 1fr) minmax(370px, 560px);
+  gap: 24px;
+  padding: 24px 40px 64px;
   align-items: start;
-  max-width: 1920px;
-  margin: 0 auto;
+  width: 100%;
 }
-@media (max-width: 1280px) {
+
+/* Base rule sits before the media queries so their overrides actually win. */
+.report-column {
+  min-width: 0;
+  position: sticky;
+  top: 16px;
+}
+/* Keep the report on the left down to common laptop widths; the columns'
+ * minimums plus gutters need ~1210px, below that the report wraps under. */
+@media (max-width: 1220px) {
   .layout {
     grid-template-columns: minmax(420px, 1fr) minmax(380px, 480px);
+    padding: 20px 24px 48px;
   }
   .report-column {
     grid-column: 1 / -1;
@@ -179,20 +263,12 @@ textarea {
   }
 }
 
-.report-column {
-  min-width: 0;
-  position: sticky;
-  top: 16px;
-}
-
 .board-column {
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
   width: 100%;
-  /* Keep the board, its controls and the analyse bar inside the window on a
-     laptop screen, so nothing important sits below the fold. */
   max-width: min(100%, calc(100vh - 190px));
   margin: 0 auto;
 }
@@ -205,12 +281,15 @@ textarea {
 /* ---------------------------------------------------------------- evalbar */
 .evalbar {
   position: relative;
-  width: 26px;
-  flex: 0 0 26px;
-  border-radius: 5px;
+  width: 28px;
+  flex: 0 0 28px;
+  border-radius: var(--r);
   overflow: hidden;
   background: var(--black-bar);
-  margin: 26px 0;
+  border: 1px solid var(--hairline);
+  /* Top offset = strip row (37px flip button) + its 12px gap; bottom = the
+   * 26px bottom player strip. Keeps the bar flush with the board edges. */
+  margin: 49px 0 26px;
 }
 .evalbar-black {
   position: absolute;
@@ -232,15 +311,30 @@ textarea {
   right: 0;
   bottom: 3px;
   text-align: center;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  color: #2a2724;
+  color: #403d39;
   font-variant-numeric: tabular-nums;
 }
 .evalbar.is-black-ahead .evalbar-label {
   bottom: auto;
   top: 3px;
-  color: #ececec;
+  color: #f8f8f8;
+}
+/* Bar orientation follows the board. */
+.evalbar.is-flipped .evalbar-white {
+  bottom: auto;
+  top: 0;
+}
+.evalbar.is-flipped .evalbar-label {
+  bottom: auto;
+  top: 3px;
+  color: #403d39;
+}
+.evalbar.is-flipped.is-black-ahead .evalbar-label {
+  top: auto;
+  bottom: 3px;
+  color: #f8f8f8;
 }
 
 .board-holder {
@@ -250,14 +344,14 @@ textarea {
 .board {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 3px;
+  border-radius: var(--r);
   overflow: hidden;
+  border: 1px solid var(--hairline);
 }
 .board-svg {
   display: block;
   width: 100%;
   height: 100%;
-  /* Pointer-based drag needs the browser not to hijack touches for scroll. */
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -266,21 +360,42 @@ textarea {
 .piece-img {
   user-select: none;
 }
+.strip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+/* The flip control earns the green border treatment: it should read as a
+ * real feature, not chrome, and sit clear of the board edge. */
+.flip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  background: var(--canvas);
+}
+.flip-btn:hover:not(:disabled) {
+  background: rgba(118, 185, 0, 0.1);
+}
 .player-strip {
   height: 26px;
   display: flex;
   align-items: center;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mute);
   gap: 8px;
 }
 .player-strip .pname {
-  color: var(--text);
+  color: var(--ink);
 }
 .player-strip .prating {
-  color: var(--text-dim);
-  font-weight: 500;
+  color: var(--mute);
+  font-weight: 400;
 }
 
 /* ---------------------------------------------------------------- squares */
@@ -299,8 +414,6 @@ textarea {
 .sq-check {
   fill: rgba(232, 60, 46, 0.55);
 }
-/* Coordinates sit inside the squares in the inverse square colour, as on
- * chess.com: cream text on green squares, green text on cream squares. */
 .coord {
   font-size: 14px;
   font-weight: 600;
@@ -331,9 +444,7 @@ textarea {
   stroke-width: 3.5px;
 }
 
-/* Arrow colours measured from chess.com's analysis board: engine-suggestion
- * green rgba(159,207,63,.8) at element opacity .8 (effective .64), and the
- * blue for a second arrow. Polygons, so fill rather than stroke. */
+/* Arrows: measured chess.com values, unchanged. */
 .arrow {
   opacity: 0.8;
 }
@@ -349,7 +460,6 @@ textarea {
   fill: #ffffff;
   pointer-events: none;
 }
-/* the badge pops in on the square you moved to, like chess.com's */
 .badge-pop {
   transform-box: fill-box;
   transform-origin: center;
@@ -377,61 +487,25 @@ textarea {
   gap: 8px;
   align-items: center;
 }
-/* The flip button lives right beside the top player's name, where "which
- * side faces me" is the question it answers. */
-.strip-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.flip-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 11px;
-  font-size: 12.5px;
-  border-color: #4a463f;
-}
-.topbar-link {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}
-
-/* Eval bar orientation follows the board: when the board is flipped, White's
- * share of the bar sits at the top, exactly as the pieces do. */
-.evalbar.is-flipped .evalbar-white {
-  bottom: auto;
-  top: 0;
-}
-.evalbar.is-flipped .evalbar-label {
-  bottom: auto;
-  top: 3px;
-  color: #2a2724;
-}
-.evalbar.is-flipped.is-black-ahead .evalbar-label {
-  top: auto;
-  bottom: 3px;
-  color: #ececec;
-}
 .analysis-bar {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .depth-hint {
   margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.45;
+  font-size: 13px;
+  color: var(--mute);
+  line-height: 1.5;
 }
 .depth-field {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--body);
 }
 .progress {
   display: flex;
@@ -441,19 +515,20 @@ textarea {
 .progress-track {
   flex: 1;
   height: 6px;
-  background: var(--bg-panel-2);
-  border-radius: 3px;
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--accent);
+  background: var(--primary);
   transition: width 0.15s linear;
 }
 .progress-text {
   font-size: 12px;
-  color: var(--text-dim);
+  color: var(--mute);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -462,18 +537,28 @@ textarea {
 .side-column {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   min-width: 0;
 }
 .panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  position: relative;
+}
+/* The NVIDIA identity tag: a small green square anchored to a card corner. */
+.corner-square {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 12px;
+  height: 12px;
+  background: var(--primary);
 }
 
 /* -------------------------------------------------------- game report */
 .report-panel {
-  padding: 16px 18px 18px;
+  padding: 24px;
 }
 .report-head {
   display: flex;
@@ -484,14 +569,25 @@ textarea {
 }
 .report-head h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: 24px;
   font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
 }
 .report-opening {
-  font-size: 12.5px;
-  color: var(--text-dim);
+  font-size: 12px;
+  color: var(--mute);
   text-align: right;
-  line-height: 1.3;
+  line-height: 1.4;
+}
+.report-placeholder {
+  color: var(--mute);
+  font-size: 15px;
+  line-height: 1.67;
+  padding: 8px 0 4px;
+}
+.report-placeholder strong {
+  color: var(--body);
 }
 
 .report-players {
@@ -513,23 +609,25 @@ textarea {
   width: 28px;
   height: 28px;
   flex: 0 0 28px;
-  border-radius: 5px;
+  border-radius: var(--r);
   display: grid;
   place-items: center;
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1;
 }
 .avatar-w {
-  background: #f0f0f0;
-  color: #2b2926;
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
 }
 .avatar-b {
-  background: #3d3a35;
-  color: #eaeaea;
+  background: var(--surface-dark);
+  color: var(--on-dark);
 }
 .rp-name {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -538,31 +636,33 @@ textarea {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-dim);
+  font-weight: 700;
+  color: var(--mute);
 }
 
 .report-accuracy {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin: 6px 0 16px;
+  margin: 8px 0 16px;
 }
 .big-acc {
   font-size: 34px;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  line-height: 1.05;
-  padding: 8px 0;
-  border-radius: 7px;
+  line-height: 1.1;
+  padding: 12px 0;
+  border-radius: var(--r);
   text-align: center;
 }
 .big-acc-w {
-  background: #f0f0f0;
-  color: #2b2926;
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
 }
 .big-acc-b {
-  background: #3d3a35;
-  color: #f0f0f0;
+  background: var(--surface-dark);
+  color: var(--on-dark);
 }
 
 .phase-block {
@@ -580,9 +680,10 @@ textarea {
 }
 .phase-name {
   text-align: center;
-  color: var(--text-dim);
+  color: var(--mute);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 700;
   font-size: 10.5px;
 }
 .phase-num {
@@ -592,8 +693,9 @@ textarea {
 }
 .phase-track {
   height: 6px;
-  border-radius: 3px;
-  background: #3a3732;
+  border-radius: var(--r);
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline);
   overflow: hidden;
   display: flex;
 }
@@ -602,19 +704,18 @@ textarea {
 }
 .phase-fill {
   height: 100%;
-  border-radius: 3px;
 }
 
 .class-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 .class-table td {
-  padding: 3px 6px;
+  padding: 4px 6px;
 }
 .class-table tr.is-row:hover {
-  background: #302d29;
+  background: var(--surface-soft);
 }
 .class-table .cell-count {
   width: 44px;
@@ -624,98 +725,77 @@ textarea {
 }
 .class-table .cell-label {
   text-align: center;
-  color: var(--text-dim);
-}
-.class-table .cell-label .chip {
-  display: inline-grid;
-  place-items: center;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 9.5px;
-  font-weight: 800;
-  margin-right: 7px;
-  vertical-align: middle;
+  color: var(--body);
 }
 .class-table .row-rating td {
-  padding-top: 9px;
-  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
   font-weight: 700;
+  color: var(--ink);
 }
 
 .key-moments {
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--hairline);
 }
 .km-label {
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--text-dim);
+  font-weight: 700;
+  color: var(--mute);
 }
 .km-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   margin-top: 8px;
 }
 .km-item {
   display: flex;
   align-items: center;
   gap: 9px;
-  background: var(--bg-panel-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 10px;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  padding: 8px 12px;
   cursor: pointer;
-  color: var(--text);
+  color: var(--ink);
   font-size: 13px;
+  font-weight: 400;
   text-align: left;
   width: 100%;
 }
 .km-item:hover {
-  background: #35322d;
+  background: var(--surface-soft);
 }
 .km-chip {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
+  display: inline-flex;
   flex: 0 0 20px;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
 }
 .km-cost {
   margin-left: auto;
   font-size: 11.5px;
-  color: var(--text-dim);
+  color: var(--mute);
   font-variant-numeric: tabular-nums;
 }
 
-
 /* ---------------------------------------------------------------- graph */
 .graph-panel {
-  padding: 6px;
+  padding: 8px;
 }
 .eval-graph {
   width: 100%;
   height: 110px;
   display: block;
   cursor: pointer;
+  border-radius: var(--r);
 }
 
 /* ---------------------------------------------------------------- detail */
 .detail-panel {
-  padding: 14px 16px;
-  /* The verdict card grows and shrinks with its content: bad moves add a best
-     line and two action buttons, long explanations wrap further. Left to
-     itself that shoves every panel below it up and down as you step through
-     the game. Reserve the room instead so stepping moves nothing but the
-     board. */
+  padding: 18px 20px;
   min-height: 268px;
 }
 @media (max-width: 980px) {
@@ -725,13 +805,15 @@ textarea {
 }
 .detail-empty h2 {
   margin: 4px 0 8px;
-  font-size: 17px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
 }
 .detail-empty p {
   margin: 0 0 14px;
-  color: var(--text-dim);
-  line-height: 1.55;
-  font-size: 13.5px;
+  color: var(--body);
+  line-height: 1.6;
+  font-size: 15px;
 }
 .detail-head {
   display: flex;
@@ -747,11 +829,11 @@ textarea {
 }
 .detail-title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .detail-move {
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--mute);
   font-variant-numeric: tabular-nums;
 }
 .detail-evals {
@@ -762,13 +844,14 @@ textarea {
   display: block;
   font-size: 18px;
   font-weight: 700;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 .detail-eval-caption {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--mute);
 }
-/* -------------------------------------------------------- coach bubble */
+
 .coach {
   display: flex;
   gap: 10px;
@@ -779,27 +862,26 @@ textarea {
   width: 34px;
   height: 34px;
   flex: 0 0 34px;
-  border-radius: 50%;
+  border-radius: var(--r);
   display: grid;
   place-items: center;
   font-size: 21px;
   line-height: 1;
-  background: #3d3a35;
-  color: var(--accent);
+  background: var(--surface-dark);
+  color: var(--primary);
 }
 .coach-bubble {
   position: relative;
   margin: 0;
-  background: var(--bg-panel-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 9px 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  padding: 10px 14px;
   line-height: 1.55;
-  font-size: 13.5px;
-  color: #ddd8d1;
+  font-size: 14px;
+  color: var(--body);
   flex: 1;
 }
-/* little tail pointing back at the coach */
 .coach-bubble::before,
 .coach-bubble::after {
   content: '';
@@ -808,52 +890,54 @@ textarea {
   top: 11px;
   border-style: solid;
   border-width: 7px 7px 7px 0;
-  border-color: transparent var(--border) transparent transparent;
+  border-color: transparent var(--hairline) transparent transparent;
 }
 .coach-bubble::after {
   left: -6px;
-  border-right-color: var(--bg-panel-2);
-}
-
-.detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-.detail-actions .btn {
-  flex: 1;
-  min-width: 130px;
+  border-right-color: var(--surface-soft);
 }
 
 .detail-line {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   align-items: baseline;
 }
 .line-label {
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--mute);
 }
 .line-moves {
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: Consolas, 'Cascadia Mono', monospace;
   font-size: 13px;
-  color: var(--accent);
+  font-weight: 700;
+  color: var(--ink);
+}
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.detail-actions .btn {
+  flex: 1;
+  min-width: 130px;
 }
 .explore-note {
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: #2a3320;
-  border: 1px solid #3d4a2c;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline);
   font-size: 13px;
   line-height: 1.5;
+  color: var(--body);
 }
 
 /* ---------------------------------------------------------- engine lines */
@@ -865,13 +949,14 @@ textarea {
   justify-content: space-between;
   align-items: baseline;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 600;
-  font-size: 13.5px;
+  border-bottom: 1px solid var(--hairline);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
 }
 .engine-depth {
   font-size: 11.5px;
-  color: var(--text-dim);
+  color: var(--mute);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
@@ -882,32 +967,30 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* Room for three lines, held whether or not there are three to show, so the
-     panels below do not move as you step through the game. */
   min-height: 104px;
   box-sizing: content-box;
-}
-.engine-line.is-idle {
-  cursor: default;
-  color: var(--text-dim);
-}
-.engine-line.is-idle:hover {
-  background: none;
 }
 .engine-line {
   display: flex;
   align-items: baseline;
   gap: 10px;
   padding: 6px 8px;
-  border-radius: 5px;
+  border-radius: var(--r);
   cursor: pointer;
   font-size: 13px;
 }
 .engine-line:hover {
-  background: var(--bg-panel-2);
+  background: var(--surface-soft);
 }
 .engine-line.is-played {
-  background: #3e4a2c;
+  background: rgba(118, 185, 0, 0.14);
+}
+.engine-line.is-idle {
+  cursor: default;
+  color: var(--mute);
+}
+.engine-line.is-idle:hover {
+  background: none;
 }
 .engine-line-eval {
   flex: 0 0 54px;
@@ -915,18 +998,19 @@ textarea {
   font-variant-numeric: tabular-nums;
   text-align: center;
   padding: 2px 0;
-  border-radius: 4px;
+  border-radius: var(--r);
   font-size: 12px;
+  border: 1px solid var(--hairline);
 }
 .engine-line-moves {
-  font-family: 'Cascadia Mono', Consolas, monospace;
-  color: var(--text-dim);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  color: var(--mute);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .engine-line-moves strong {
-  color: var(--text);
+  color: var(--ink);
 }
 
 /* ---------------------------------------------------------------- moves */
@@ -939,14 +1023,15 @@ textarea {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 600;
-  font-size: 13.5px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--hairline);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
 }
 .moves-hint {
   font-size: 11.5px;
-  color: var(--text-dim);
+  color: var(--mute);
   font-weight: 400;
 }
 .moves-scroll {
@@ -963,12 +1048,13 @@ textarea {
 }
 .move-number {
   padding: 5px 8px;
-  color: var(--text-dim);
+  /* #666 clears WCAG AA on the soft #f7f7f7 strip; --mute would not. */
+  color: #666666;
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   display: flex;
   align-items: center;
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--surface-soft);
 }
 .move-cell {
   padding: 5px 8px;
@@ -977,14 +1063,15 @@ textarea {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  font-weight: 600;
-  border-radius: 4px;
+  font-weight: 700;
+  color: var(--ink);
 }
 .move-cell:hover {
-  background: #33302b;
+  background: var(--surface-soft);
 }
 .move-cell.is-current {
-  background: #3e4a2c;
+  background: var(--surface-dark);
+  color: var(--on-dark);
 }
 .move-cell.is-empty {
   cursor: default;
@@ -1002,64 +1089,69 @@ textarea {
 .cell-label .chip-icon {
   margin-right: 7px;
 }
-.km-chip {
-  display: inline-flex;
-  flex: 0 0 20px;
-}
 .move-loss {
   margin-left: auto;
   font-size: 11px;
-  color: var(--text-dim);
-  font-weight: 500;
+  color: var(--mute);
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
+}
+.move-cell.is-current .move-loss {
+  color: var(--on-dark-mute);
 }
 
 /* ---------------------------------------------------------------- dialog */
 .load-dialog {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-panel);
-  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  background: var(--canvas);
+  color: var(--body);
   padding: 0;
-  width: min(620px, 94vw);
+  width: min(640px, 94vw);
 }
 .load-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.55);
 }
 .load-inner {
-  padding: 20px 22px 22px;
+  padding: 24px;
   position: relative;
 }
 .load-inner h2 {
-  margin: 0 0 14px;
-  font-size: 18px;
+  margin: 0 0 16px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
 }
 .close-x {
   position: absolute;
-  top: 16px;
-  right: 18px;
-  padding: 4px 10px;
+  top: 18px;
+  right: 20px;
+  padding: 6px 14px;
   font-size: 13px;
 }
 .tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 8px;
 }
 .tab {
-  background: none;
+  background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-dim);
-  padding: 8px 12px;
+  border-radius: var(--r);
+  color: var(--ink);
+  padding: 10px 18px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 13.5px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.tab:hover {
+  background: var(--surface-soft);
 }
 .tab.is-active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
+  background: var(--surface-dark);
+  color: var(--on-dark);
 }
 .tab-panel {
   display: none;
@@ -1078,12 +1170,12 @@ textarea {
 }
 .hint {
   margin: 0;
-  font-size: 12.5px;
-  color: var(--text-dim);
+  font-size: 13px;
+  color: var(--mute);
 }
 .error {
   margin: 10px 0 0;
-  color: #fa8072;
+  color: var(--error);
   font-size: 13px;
 }
 .game-list {
@@ -1094,26 +1186,26 @@ textarea {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 .game-list li button {
   width: 100%;
   text-align: left;
-  background: var(--bg-panel-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 8px 10px;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  color: var(--ink);
+  padding: 9px 12px;
   cursor: pointer;
   font-size: 13px;
   line-height: 1.4;
 }
 .game-list li button:hover {
-  background: #3a3630;
+  background: var(--surface-soft);
 }
 .game-meta {
   display: block;
-  color: var(--text-dim);
+  color: var(--mute);
   font-size: 11.5px;
   margin-top: 2px;
 }

@@ -4,7 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Game Review: chess analysis</title>
-    <link rel="stylesheet" href="css/style.css?v=202608210513" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+    />
+    <link rel="stylesheet" href="css/style.css?v=202608211532" />
   </head>
   <body>
     <header class="topbar">
@@ -18,7 +24,7 @@
       <div class="topbar-actions">
         <span id="engineStatus" class="engine-status">Engine: idle</span>
         <a href="about.html" class="btn btn-ghost topbar-link">About</a>
-        <button id="newGameBtn" class="btn btn-ghost">Load a game</button>
+        <button id="newGameBtn" class="btn btn-primary">Load a game</button>
       </div>
     </header>
 
@@ -72,12 +78,26 @@
       <!-- The Game Report lives on the left and stays on screen while you
            step through the moves on the right. -->
       <section class="report-column">
-        <div class="panel report-panel" id="summaryPanel" hidden>
+        <div class="panel report-panel" id="summaryPanel">
+          <span class="corner-square" aria-hidden="true"></span>
           <div class="report-head">
             <h2>Game Report</h2>
             <span class="report-opening" id="openingName"></span>
           </div>
 
+          <div class="report-placeholder" id="reportPlaceholder">
+            <p style="margin: 0 0 10px">
+              Your report fills in here the moment an analysis finishes:
+              <strong>accuracy for both players</strong>, estimated game rating,
+              a verdict on every move, and the key moments that decided the game.
+            </p>
+            <p style="margin: 0">
+              Load a game with <strong>Load a game</strong> in the top right,
+              then press <strong>Analyse game</strong> under the board.
+            </p>
+          </div>
+
+          <div id="reportContent" hidden>
           <div class="report-players">
             <div class="rp">
               <span class="avatar avatar-w">♔</span>
@@ -101,6 +121,7 @@
           <div class="key-moments" id="keyMoments" hidden>
             <span class="km-label">Key moments</span>
             <div class="km-list" id="keyMomentsList"></div>
+          </div>
           </div>
         </div>
       </section>
@@ -218,6 +239,6 @@
       </section>
     </main>
 
-    <script type="module" src="js/app.js?v=202608210513"></script>
+    <script type="module" src="js/app.js?v=202608211532"></script>
   </body>
 </html>

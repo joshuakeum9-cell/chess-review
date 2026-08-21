@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608210513';
-import { EnginePool } from './engine.js?v=202608210513';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608211532';
+import { EnginePool } from './engine.js?v=202608211532';
 import {
   analysePositions,
   verifyFlaggedMoves,
@@ -9,9 +9,9 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608210513';
-import { BoardView } from './board.js?v=202608210513';
-import { chipHtml, classColor } from './icons.js?v=202608210513';
+} from './review.js?v=202608211532';
+import { BoardView } from './board.js?v=202608211532';
+import { chipHtml, classColor } from './icons.js?v=202608211532';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -95,6 +95,9 @@ function loadGameFromPgn(pgnText) {
 }
 
 function setGame(parsed) {
+  // A load during a running analysis abandons that run; runAnalysis checks
+  // the game identity before publishing, so stale results can never land.
+  if (state.analysing) state.cancelRequested = true;
   state.game = parsed;
   state.positions = null;
   state.report = null;
@@ -103,7 +106,10 @@ function setGame(parsed) {
   state.pinnedArrows = null;
 
   $('analyseBtn').disabled = false;
-  $('summaryPanel').hidden = true;
+  // The Game Report card stays on screen; before an analysis it shows the
+  // placeholder copy instead of numbers.
+  $('reportPlaceholder').hidden = false;
+  $('reportContent').hidden = true;
   $('graphPanel').hidden = true;
   $('enginePanel').hidden = true;
   $('detailEmpty').hidden = false;
@@ -112,6 +118,7 @@ function setGame(parsed) {
   const h = parsed.headers;
   $('whiteName').textContent = h.White || 'White';
   $('blackName').textContent = h.Black || 'Black';
+  $('openingName').textContent = '';
 
   // When the game came from a username search, orient the board so that
   // player's side faces them. Display only: flipping never re-analyses.
@@ -244,11 +251,15 @@ async function runAnalysis() {
   state.analysing = true;
   state.cancelRequested = false;
   state.explore = null;
+  // Pin the game this run belongs to: if a new game is loaded mid-run the
+  // results are thrown away instead of being pinned onto the wrong moves.
+  const game = state.game;
+  let errored = false;
 
   $('analyseBtn').disabled = true;
   $('cancelBtn').hidden = false;
   $('progressWrap').hidden = false;
-  setProgress(0, state.game.moves.length + 1);
+  setProgress(0, game.moves.length + 1);
 
   try {
     await ensureEngine();
@@ -256,7 +267,7 @@ async function runAnalysis() {
     const depth = parseInt($('depthSelect').value, 10) || 14;
     state.depth = depth;
 
-    const positions = await analysePositions(state.game, engine, {
+    const positions = await analysePositions(game, engine, {
       depth,
       // Widening the search is by far the most expensive knob with NNUE: at a
       // given depth, four lines cost roughly four times one. Three lines is
@@ -271,8 +282,8 @@ async function runAnalysis() {
     // at greater depth before the verdict is shown. Kills the false flags
     // that shallow-search noise produces, at a fraction of the cost of
     // deepening the whole game.
-    if (!state.cancelRequested && positions.length === state.game.moves.length + 1) {
-      await verifyFlaggedMoves(state.game, positions, engine, {
+    if (!state.cancelRequested && positions.length === game.moves.length + 1) {
+      await verifyFlaggedMoves(game, positions, engine, {
         depth,
         extraDepth: 4,
         onProgress: ({ done, total, phase }) => setProgress(done, total, phase),
@@ -280,11 +291,15 @@ async function runAnalysis() {
       });
     }
 
+    // A different game was loaded while this one was being analysed: these
+    // evaluations belong to the old moves, so drop them silently.
+    if (state.game !== game) return;
+
     // If you cancelled part-way, buildReport simply stops at the last move it
     // has an evaluation for. The game itself is left intact so you can run the
     // analysis again without losing moves.
     state.positions = positions;
-    state.report = buildReport(state.game, positions);
+    state.report = buildReport(game, positions);
     state.ply = 0;
 
     $('graphPanel').hidden = false;
@@ -293,14 +308,17 @@ async function runAnalysis() {
     renderMoveList();
     goToPly(0);
     // Chess.com shows you the report card first, then you step into the game.
-    $('summaryPanel').hidden = false;
+    $('reportPlaceholder').hidden = true;
+    $('reportContent').hidden = false;
   } catch (err) {
     showTransientError(err.message || String(err));
+    errored = true;
   } finally {
     state.analysing = false;
     $('analyseBtn').disabled = false;
     $('cancelBtn').hidden = true;
-    $('progressWrap').hidden = true;
+    // On failure the strip stays up: it is where the error message lives.
+    if (!errored) $('progressWrap').hidden = true;
   }
 }
 
@@ -433,8 +451,11 @@ function renderEngineLines() {
     const score = document.createElement('span');
     score.className = 'engine-line-eval';
     score.textContent = evalText;
-    score.style.background = ahead ? '#f0f0f0' : behind ? '#403d39' : '#5a564f';
-    score.style.color = ahead ? '#2a2724' : '#ececec';
+    score.style.background = ahead ? '#ffffff' : behind ? '#000000' : '#757575';
+    score.style.color = ahead ? '#000000' : '#ffffff';
+    // The white pill needs a firmer edge than the default hairline to stay
+    // legible as a "white is better" chip on the white panel.
+    score.style.borderColor = ahead ? '#757575' : 'transparent';
 
     const moves = document.createElement('span');
     moves.className = 'engine-line-moves';
@@ -589,9 +610,9 @@ function renderSummary() {
     .map((key) => {
       const meta = CLASSIFICATIONS[key];
       return `<tr class="is-row">
-        <td class="cell-count" style="color:${classColor(key)}">${stats.w.counts[key]}</td>
+        <td class="cell-count" style="color:${classTextColor(key)}">${stats.w.counts[key]}</td>
         <td class="cell-label">${chipHtml(key, 17)}${meta.label}</td>
-        <td class="cell-count" style="color:${classColor(key)}">${stats.b.counts[key]}</td>
+        <td class="cell-count" style="color:${classTextColor(key)}">${stats.b.counts[key]}</td>
       </tr>`;
     })
     .join('');
@@ -620,11 +641,11 @@ function renderPhases(stats) {
     const row = document.createElement('div');
     row.className = 'phase-row';
     row.innerHTML = `
-      <span class="phase-num" style="color:${accuracyColour(w)}">${w === null ? 'n/a' :w.toFixed(0)}</span>
+      <span class="phase-num">${w === null ? 'n/a' :w.toFixed(0)}</span>
       <span class="phase-track flip"><span class="phase-fill" style="width:${w || 0}%;background:${accuracyColour(w)}"></span></span>
       <span class="phase-name">${labels[phase]}</span>
       <span class="phase-track"><span class="phase-fill" style="width:${b || 0}%;background:${accuracyColour(b)}"></span></span>
-      <span class="phase-num" style="color:${accuracyColour(b)}">${b === null ? 'n/a' :b.toFixed(0)}</span>`;
+      <span class="phase-num">${b === null ? 'n/a' :b.toFixed(0)}</span>`;
     block.append(row);
   }
 }
@@ -636,6 +657,25 @@ function accuracyColour(value) {
   if (value >= 70) return '#f7c631';
   if (value >= 60) return '#ffa459';
   return '#fa412d';
+}
+
+/* The chip palette is tuned for badges on the board; as text on the white
+ * panels the light hues wash out. Same hue families, darkened to read. */
+const CLASS_TEXT = {
+  brilliant: '#0f8a72',
+  great: '#4a6d95',
+  best: '#537d2b',
+  excellent: '#537d2b',
+  good: '#5a7540',
+  book: '#8a5c30',
+  forced: '#666666',
+  inaccuracy: '#8a6d00',
+  miss: '#c2401f',
+  mistake: '#a3520a',
+  blunder: '#c62817',
+};
+function classTextColor(type) {
+  return CLASS_TEXT[type] || '#1a1a1a';
 }
 
 function renderKeyMoments() {
@@ -685,7 +725,7 @@ function renderDetail(reviewed) {
   badge.style.background = 'transparent';
 
   $('detailTitle').textContent = meta.label;
-  $('detailTitle').style.color = classColor(reviewed.classification);
+  $('detailTitle').style.color = classTextColor(reviewed.classification);
 
   const moveNo = Math.floor(reviewed.index / 2) + 1;
   const dots = reviewed.color === 'w' ? '.' : '...';
@@ -734,8 +774,8 @@ function showBetterMove(reviewed) {
   const note = $('exploreNote');
   note.hidden = false;
   note.innerHTML =
-    `<strong style="color:#6ac04b">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')}, the move to play. ` +
-    `<strong style="color:#6f9fc4">Blue</strong>: ${escapeHtml(reviewed.san)}, what you played. ` +
+    `<strong style="color:#3e7a1e">Green</strong>: ${escapeHtml(reviewed.bestSan || 'engine choice')}, the move to play. ` +
+    `<strong style="color:#2c6d99">Blue</strong>: ${escapeHtml(reviewed.san)}, what you played. ` +
     `Press the right arrow key to go back to the game.`;
 }
 
@@ -759,7 +799,7 @@ function renderGraph() {
   const bg = document.createElementNS(ns, 'rect');
   bg.setAttribute('width', W);
   bg.setAttribute('height', H);
-  bg.setAttribute('fill', '#3a3733');
+  bg.setAttribute('fill', '#1a1a1a');
   svg.append(bg);
 
   const area = document.createElementNS(ns, 'path');
@@ -768,7 +808,7 @@ function renderGraph() {
     points.map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') +
     ` L ${W} ${H} Z`;
   area.setAttribute('d', d);
-  area.setAttribute('fill', '#e9e7e2');
+  area.setAttribute('fill', '#ffffff');
   svg.append(area);
 
   const mid = document.createElementNS(ns, 'line');
@@ -799,7 +839,7 @@ function renderGraph() {
   cursor.setAttribute('id', 'graphCursor');
   cursor.setAttribute('y1', 0);
   cursor.setAttribute('y2', H);
-  cursor.setAttribute('stroke', '#81b64c');
+  cursor.setAttribute('stroke', '#76b900');
   cursor.setAttribute('stroke-width', '2');
   svg.append(cursor);
 
@@ -895,7 +935,7 @@ async function playExploratoryMove(chess, move) {
     '<svg class="chip-icon" width="38" height="38" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#6b7280"/><text x="12" y="12.5" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="13" font-weight="800">?</text></svg>';
   $('detailBadge').style.background = 'transparent';
   $('detailTitle').textContent = 'Exploring';
-  $('detailTitle').style.color = '#c9c4bc';
+  $('detailTitle').style.color = '#757575';
   $('detailMove').textContent = state.explore.moves.map((m) => m.san).join(' ');
   $('detailText').textContent = 'Asking the engine…';
   $('detailLine').hidden = true;

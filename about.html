@@ -8,81 +8,487 @@
       name="description"
       content="A free, private chess game reviewer that runs Stockfish in your browser: verdicts on every move, accuracy scores, and coaching explanations."
     />
-    <link rel="stylesheet" href="css/style.css?v=202608210513" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+    />
+    <link rel="stylesheet" href="css/style.css?v=202608211532" />
+    <script>
+      // Animation gate: reveal styles only apply when JS is running and the
+      // visitor has not asked for reduced motion. Without JS the page renders
+      // fully visible, nothing depends on the observer firing.
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('js-anim');
+      }
+    </script>
     <style>
-      .about-wrap {
-        max-width: 880px;
+      /* ---- page scaffolding: NVIDIA chapter rhythm, filled left to right */
+      .shell {
+        width: 100%;
         margin: 0 auto;
-        padding: 48px 24px 80px;
+        /* 40px matches the topbar and the analyser's own gutters. */
+        padding: 0 40px;
       }
-      .about-hero {
-        text-align: center;
-        padding: 24px 0 40px;
+      section.chapter {
+        padding: 64px 0;
       }
-      .about-hero h1 {
-        font-size: 40px;
-        margin: 0 0 14px;
-        letter-spacing: -0.02em;
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--mute);
+        margin: 0 0 12px;
       }
-      .about-hero .lede {
-        font-size: 17px;
-        color: var(--text-dim);
-        line-height: 1.65;
-        max-width: 640px;
-        margin: 0 auto 26px;
+      .eyebrow::before {
+        content: '';
+        width: 12px;
+        height: 12px;
+        background: var(--primary);
+        flex: none;
       }
-      .cta-row {
+      .display-lg {
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--ink);
+        margin: 0 0 20px;
+        max-width: 900px;
+      }
+      .a-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 11px 24px;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.25;
+        border-radius: var(--r);
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s, color 0.12s;
+      }
+      .a-btn-primary {
+        background: var(--primary);
+        color: var(--on-primary);
+        border: 2px solid var(--primary);
+      }
+      .a-btn-primary:hover {
+        background: var(--primary-dark);
+        border-color: var(--primary-dark);
+      }
+      .a-btn-outline {
+        background: transparent;
+        color: var(--ink);
+        border: 2px solid var(--primary);
+      }
+      .a-btn-outline:hover {
+        background: rgba(118, 185, 0, 0.08);
+      }
+      .a-btn-outline-dark {
+        background: transparent;
+        color: var(--on-dark);
+        border: 2px solid var(--on-dark);
+      }
+      .a-btn-outline-dark:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .ghost-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        /* One notch deeper than --primary-dark: 16px bold needs 4.5:1 AA. */
+        color: #537d2b;
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .ghost-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ---- hero chapter -------------------------------------------------- */
+      .hero {
+        background: var(--surface-dark);
+        color: var(--on-dark);
+        position: relative;
+      }
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(420px, 46%) 1fr;
+        gap: 48px;
+        align-items: center;
+        padding: 80px 0;
+      }
+      .hero-square {
+        position: absolute;
+        top: 0;
+        left: 40px;
+        width: 16px;
+        height: 16px;
+        background: var(--primary);
+      }
+      .hero h1 {
+        font-size: 48px;
+        font-weight: 700;
+        line-height: 1.25;
+        margin: 0 0 18px;
+        color: var(--on-dark);
+      }
+      .hero .lede {
+        font-size: 22px;
+        font-weight: 400;
+        line-height: 1.75;
+        color: var(--on-dark-mute);
+        margin: 0 0 28px;
+      }
+      .hero-ctas {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+      .hero-fine {
+        font-size: 12px;
+        line-height: 1.25;
+        color: var(--on-dark-mute);
+        margin: 0;
+      }
+      .hero-visual {
         display: flex;
         gap: 12px;
         justify-content: center;
-        flex-wrap: wrap;
+        align-items: stretch;
       }
-      .cta-row .btn {
-        padding: 12px 22px;
-        font-size: 15px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
+      .hero-eval {
+        width: 26px;
+        flex: 0 0 26px;
+        background: #403d39;
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--r);
+        position: relative;
+        overflow: hidden;
       }
-      .about-section {
-        margin-top: 44px;
+      .hero-eval-white {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 52%;
+        background: #ffffff;
       }
-      .about-section h2 {
-        font-size: 22px;
-        margin: 0 0 12px;
+      .js-anim .hero-eval-white {
+        animation: eval-breath 10.5s ease-in-out infinite;
       }
-      .about-section p {
-        line-height: 1.7;
-        color: #d8d4cd;
+      @keyframes eval-breath {
+        0%, 100% { height: 52%; }
+        30% { height: 67%; }
+        62% { height: 46%; }
+        82% { height: 58%; }
+      }
+      .hero-board {
+        width: min(440px, 100%);
+        aspect-ratio: 1;
+        border-radius: var(--r);
+        border: 1px solid var(--hairline-strong);
+        display: block;
+      }
+      .hero-cycle {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .js-anim .hero-cycle {
+        animation: hero-cycle 10.5s ease-out infinite both;
+      }
+      /* Fallback when animations are off: show the first suggestion. */
+      html:not(.js-anim) .hero-cycle:first-of-type {
+        opacity: 1;
+      }
+      @keyframes hero-cycle {
+        0% { opacity: 0; transform: scale(0.86); }
+        4% { opacity: 1; transform: scale(1); }
+        28% { opacity: 1; transform: scale(1); }
+        33% { opacity: 0; transform: scale(1); }
+        100% { opacity: 0; }
+      }
+
+      /* ---- white chapters ------------------------------------------------ */
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 60fr) minmax(0, 40fr);
+        gap: 48px;
+        align-items: start;
+      }
+      .prose p {
+        font-size: 16px;
+        line-height: 1.5;
+        color: var(--body);
+        margin: 0 0 16px;
+        max-width: 70ch;
+      }
+      .prose p:last-child {
+        margin-bottom: 0;
+      }
+      .soft-panel {
+        background: var(--surface-soft);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r);
+        padding: 32px;
+        position: relative;
+      }
+      .soft-panel h3 {
         margin: 0 0 14px;
-        font-size: 15px;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--ink);
       }
+      .soft-panel ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .soft-panel li {
+        font-size: 15px;
+        line-height: 1.67;
+        color: var(--body);
+        padding-left: 22px;
+        position: relative;
+      }
+      .soft-panel li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 10px;
+        height: 10px;
+        background: var(--primary);
+      }
+      .credits {
+        margin-top: 16px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--mute);
+      }
+
+      /* ---- feature cards ------------------------------------------------- */
       .feature-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 14px;
-        margin-top: 18px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+        margin-top: 8px;
       }
-      .feature {
-        background: var(--bg-panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 16px;
+      .feature-card {
+        background: var(--canvas);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r);
+        padding: 32px;
+        position: relative;
+        transition: border-color 0.15s;
       }
-      .feature h3 {
+      .feature-card:hover {
+        border-color: var(--hairline-strong);
+      }
+      .feature-card .corner-square {
+        top: -1px;
+        left: -1px;
+      }
+      .feature-icon {
+        color: var(--primary);
+        margin-bottom: 14px;
+      }
+      .feature-card h3 {
         margin: 0 0 8px;
-        font-size: 14.5px;
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--ink);
       }
-      .feature p {
+      .feature-card p {
         margin: 0;
-        font-size: 13px;
-        color: var(--text-dim);
-        line-height: 1.55;
+        font-size: 15px;
+        line-height: 1.67;
+        color: var(--body);
       }
-      .quiet {
-        color: var(--text-dim);
-        font-size: 13px;
+      .grid-cta {
+        margin-top: 28px;
+      }
+
+      /* ---- stat callouts ------------------------------------------------- */
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 24px;
+      }
+      .callout-stat {
+        background: var(--canvas);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r);
+        padding: 32px;
+        position: relative;
+      }
+      .stat-num {
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--primary-dark);
+        font-variant-numeric: tabular-nums;
+        display: block;
+      }
+      .stat-cap {
+        font-size: 16px;
+        line-height: 1.5;
+        color: var(--body);
+        margin-top: 6px;
+        display: block;
+      }
+
+      /* ---- dark CTA strip ------------------------------------------------ */
+      .cta-strip {
+        background: var(--surface-dark);
+        color: var(--on-dark);
+      }
+      .cta-strip-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+        padding: 64px 0;
+        position: relative;
+      }
+      .cta-strip h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--on-dark);
+      }
+      .cta-strip p {
+        margin: 6px 0 0;
+        font-size: 15px;
+        color: var(--on-dark-mute);
+      }
+
+      /* ---- footer -------------------------------------------------------- */
+      .footer {
+        background: var(--surface-dark);
+        color: var(--on-dark-mute);
+      }
+      .footer-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 32px;
+        padding: 64px 0 40px;
+      }
+      .footer h4 {
+        margin: 0 0 14px;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--on-dark);
+      }
+      .footer ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .footer a {
+        color: var(--on-dark-mute);
+        text-decoration: none;
+        font-size: 15px;
+        line-height: 1.67;
+      }
+      .footer a:hover {
+        color: var(--primary);
+      }
+      .footer li {
+        font-size: 15px;
+        line-height: 1.67;
+      }
+      .fine-print {
+        border-top: 1px solid var(--hairline-strong);
+        padding: 18px 0 22px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--mute);
+        line-height: 1.5;
+      }
+
+      /* ---- entrance reveals ---------------------------------------------- */
+      .js-anim .reveal {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.6s ease, transform 0.6s ease;
+      }
+      .js-anim .reveal.is-in {
+        opacity: 1;
+        transform: none;
+      }
+      .js-anim [data-stagger] > .reveal:nth-child(2) { transition-delay: 0.08s; }
+      .js-anim [data-stagger] > .reveal:nth-child(3) { transition-delay: 0.16s; }
+      .js-anim [data-stagger] > .reveal:nth-child(4) { transition-delay: 0.24s; }
+      .js-anim [data-stagger] > .reveal:nth-child(5) { transition-delay: 0.32s; }
+      .js-anim [data-stagger] > .reveal:nth-child(6) { transition-delay: 0.4s; }
+
+      /* ---- responsive ---------------------------------------------------- */
+      @media (max-width: 1100px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
+          padding: 56px 0;
+        }
+        .hero h1 {
+          font-size: 36px;
+        }
+        .split {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+        .feature-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .stat-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 640px) {
+        .shell {
+          padding: 0 20px;
+        }
+        .hero-square {
+          left: 20px;
+        }
+        section.chapter {
+          padding: 40px 0;
+        }
+        .hero h1 {
+          font-size: 32px;
+        }
+        .hero .lede {
+          font-size: 18px;
+        }
+        .display-lg {
+          font-size: 28px;
+        }
+        .feature-grid,
+        .stat-grid,
+        .footer-grid {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -96,111 +502,473 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <a href="https://github.com/joshuakeum9-cell/chess-review" class="btn btn-ghost topbar-link">View the code</a>
         <a href="index.html" class="btn btn-primary topbar-link">Open the analyser</a>
       </div>
     </header>
 
-    <main class="about-wrap">
-      <section class="about-hero">
-        <h1>Understand every move you play</h1>
-        <p class="lede">
-          Game Review is a free chess analysis tool I built to do what premium
-          game review products do: take a finished game, grade every single
-          move, show you exactly where it went wrong, and teach you the move
-          you should have played instead. It runs entirely in your browser,
-          costs nothing, needs no account, and never uploads your games
-          anywhere.
-        </p>
-        <div class="cta-row">
-          <a href="index.html" class="btn btn-primary">Analyse a game</a>
-          <a href="https://github.com/joshuakeum9-cell/chess-review" class="btn btn-ghost">View the code</a>
+    <!-- ================================================== hero chapter -->
+    <section class="hero">
+      <span class="hero-square" aria-hidden="true"></span>
+      <div class="shell">
+        <div class="hero-grid">
+          <div>
+            <h1>Understand every move you play</h1>
+            <p class="lede">
+              Game Review takes a finished chess game, grades every single
+              move, shows you exactly where it went wrong, and teaches you the
+              move you should have played instead. Free, no account, and your
+              games never leave your browser.
+            </p>
+            <div class="hero-ctas">
+              <a href="index.html" class="a-btn a-btn-primary">Analyse a game</a>
+              <a href="#features" class="a-btn a-btn-outline-dark">See what you get</a>
+            </div>
+            <p class="hero-fine">Free · No account · Runs entirely on your machine</p>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="hero-eval"><div class="hero-eval-white"></div></div>
+            <svg id="heroBoard" class="hero-board" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="about-section">
-        <h2>Why I built this</h2>
-        <p>
-          The fastest way to improve at chess is not playing more games. It is
-          understanding the games you already played: which moves threw away
-          the win, which tactic you walked past, which "safe" move quietly
-          handed over the position. The tools that do this well sit behind
-          subscriptions, and the free tiers ration how many games you can
-          review.
-        </p>
-        <p>
-          I wanted that feedback loop to be free for anyone who is trying to
-          get better, and I wanted to find out how much of a premium review
-          experience one person could build from first principles. So I built
-          the whole pipeline myself: the chess rules engine, the move
-          classification logic, the accuracy model, and the coaching
-          explanations, with Stockfish 17 doing the raw calculation in a pool
-          of web workers on your own machine.
-        </p>
-      </section>
+    <!-- ================================================== why chapter -->
+    <section class="chapter">
+      <div class="shell">
+        <p class="eyebrow reveal">Why it exists</p>
+        <h2 class="display-lg reveal">Improvement is a feedback loop, and the loop was paywalled</h2>
+        <div class="split">
+          <div class="prose reveal">
+            <p>
+              The fastest way to improve at chess is not playing more games. It
+              is understanding the games you already played: which moves threw
+              away the win, which tactic you walked past, which safe-looking
+              move quietly handed over the position. The tools that do this
+              well sit behind subscriptions, and the free tiers ration how many
+              games you can review.
+            </p>
+            <p>
+              I wanted that feedback loop to be free for anyone who is trying
+              to get better, and I wanted to find out how much of a premium
+              review experience one person could build from first principles.
+              So I built the whole pipeline myself: the chess rules engine, the
+              move classification logic, the accuracy model, and the coaching
+              explanations, with Stockfish 17 doing the raw calculation in a
+              pool of web workers on your own machine.
+            </p>
+          </div>
+          <div class="soft-panel reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <h3>The rules it was built under</h3>
+            <ul>
+              <li>Free forever, for every game, at full depth</li>
+              <li>No account, no upload, no tracking of any kind</li>
+              <li>Verdicts benchmarked against the major sites, not guessed</li>
+              <li>Explanations in plain English, grounded in the position</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
 
-      <section class="about-section">
-        <h2>What it does</h2>
-        <div class="feature-grid">
-          <div class="feature">
+    <!-- ================================================== features -->
+    <section class="chapter" id="features" style="padding-top: 0">
+      <div class="shell">
+        <p class="eyebrow reveal">What you get</p>
+        <h2 class="display-lg reveal">A full premium-style review, free</h2>
+        <div class="feature-grid" data-stagger>
+          <div class="feature-card reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 15.5 6.6 18.5l1.2-6L3.3 8.3l6.1-.7z"/></svg>
+            </div>
             <h3>A verdict on every move</h3>
             <p>Brilliant, Great, Best, Excellent, Good, Book, Inaccuracy, Mistake, Miss, and Blunder, with the badge popping right on the board square.</p>
           </div>
-          <div class="feature">
+          <div class="feature-card reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 12l5-3"/><path d="M19 16l2 2 2-2"/></svg>
+            </div>
             <h3>Accuracy and game report</h3>
             <p>An accuracy score for each player, an estimated game rating, phase-by-phase breakdowns, and the key moments that decided the game.</p>
           </div>
-          <div class="feature">
+          <div class="feature-card reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/><path d="M8 11h8M8 14h5"/></svg>
+            </div>
             <h3>Coaching, not jargon</h3>
             <p>Every flagged move gets a plain-English explanation grounded in the position: what hangs, what the punishing reply is, and the line that was better.</p>
           </div>
-          <div class="feature">
+          <div class="feature-card reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>
+            </div>
             <h3>Deep verification</h3>
             <p>Any move flagged as an error is re-checked at greater depth before you see the verdict, so false accusations are rare by design.</p>
           </div>
-          <div class="feature">
+          <div class="feature-card reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
+            </div>
             <h3>Explore freely</h3>
             <p>Drag pieces to test your own ideas and ask the engine, draw arrows and highlights to think out loud, flip the board to either point of view.</p>
           </div>
-          <div class="feature">
+          <div class="feature-card reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="1"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/></svg>
+            </div>
             <h3>Fast and private</h3>
-            <p>A full game reviews in seconds. The engine runs in your browser, so your games never leave your computer.</p>
+            <p>A full game reviews in seconds thanks to a pool of parallel engine workers. Everything runs locally, so your games stay yours.</p>
           </div>
         </div>
-      </section>
-
-      <section class="about-section">
-        <h2>Built from scratch, measured against the best</h2>
-        <p>
-          This project is also a piece of engineering I am proud of. The move
-          generator is validated with perft against the standard reference
-          positions. The classifier was benchmarked ply-by-ply against
-          Lichess's published judgments across thousands of positions, and the
-          accuracy model tracks the numbers the major sites report to within a
-          couple of points on real games. When something disagreed, I chased
-          down which side was right and kept the receipts in the repository's
-          benchmark suite.
-        </p>
-        <p class="quiet">
-          Engine: Stockfish 17.1 (GPL). Pieces: Cburnett set (CC BY-SA).
-          Openings: the Lichess ECO dataset, 3,810 named lines. Everything
-          else: written by hand.
-        </p>
-      </section>
-
-      <section class="about-section">
-        <h2>Who made this</h2>
-        <p>
-          I am Joshua Keum. I like taking things that feel locked behind a
-          paywall or a big company and rebuilding them from first principles
-          to see how close one focused person can get. This is one of those
-          projects: part chess improvement tool, part proof of what careful
-          engineering and honest benchmarking can do. If it helps you spot the
-          move you keep missing, it did its job.
-        </p>
-        <div class="cta-row" style="justify-content: flex-start">
-          <a href="index.html" class="btn btn-primary">Try it on one of your games</a>
+        <div class="grid-cta reveal">
+          <a href="index.html" class="ghost-link">Open the analyser and try it &rarr;</a>
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
+
+    <!-- ================================================== stats -->
+    <section class="chapter" style="padding-top: 0">
+      <div class="shell">
+        <div class="stat-grid" data-stagger>
+          <div class="callout-stat reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <span class="stat-num" data-count="3810">3,810</span>
+            <span class="stat-cap">named opening lines recognised, transpositions included</span>
+          </div>
+          <div class="callout-stat reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <span class="stat-num" data-count="10">10</span>
+            <span class="stat-cap">Stockfish workers analysing your game in parallel</span>
+          </div>
+          <div class="callout-stat reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <span class="stat-num" data-count="9" data-prefix="~" data-suffix="s">~9s</span>
+            <span class="stat-cap">to review a full game on a modern machine</span>
+          </div>
+          <div class="callout-stat reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <span class="stat-num" data-count="100" data-suffix="%">100%</span>
+            <span class="stat-cap">of the analysis happens in your browser. Nothing is uploaded</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== CTA strip -->
+    <section class="cta-strip">
+      <div class="shell">
+        <div class="cta-strip-inner">
+          <div>
+            <h2>Ready to see what your last game was hiding?</h2>
+            <p>Paste a PGN or pull your games straight from Chess.com or Lichess.</p>
+          </div>
+          <a href="index.html" class="a-btn a-btn-primary">Load a game</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== engineering -->
+    <section class="chapter">
+      <div class="shell">
+        <p class="eyebrow reveal">Under the hood</p>
+        <h2 class="display-lg reveal">Built from scratch, measured against the best</h2>
+        <div class="split">
+          <div class="prose reveal">
+            <p>
+              This project is also a piece of engineering I am proud of. The
+              move generator is validated with perft against the standard
+              reference positions. The classifier was benchmarked ply-by-ply
+              against Lichess's published judgments across thousands of
+              positions, and the accuracy model tracks the numbers the major
+              sites report to within a couple of points on real games.
+            </p>
+            <p>
+              When something disagreed, I chased down which side was right and
+              kept the receipts: the repository ships with the full benchmark
+              suite, so every claim on this page can be re-run.
+            </p>
+            <p class="credits">
+              Engine: Stockfish 17.1 (GPL). Pieces: Cburnett set (CC BY-SA).
+              Openings: the Lichess ECO dataset. Everything else: written by
+              hand.
+            </p>
+          </div>
+          <div class="soft-panel reveal">
+            <span class="corner-square" aria-hidden="true"></span>
+            <h3>The scoreboard</h3>
+            <ul>
+              <li>Accuracy within about two points of Lichess on real games</li>
+              <li>Serious-error verdicts stable when re-searched four plies deeper</li>
+              <li>Every flagged move re-verified before it reaches you</li>
+              <li>Deterministic: the same game gets the same review, every run</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== maker -->
+    <section class="chapter" style="padding-top: 0">
+      <div class="shell">
+        <p class="eyebrow reveal">Who made this</p>
+        <div class="split">
+          <div class="prose reveal">
+            <p>
+              I am Joshua Keum. I like taking things that feel locked behind a
+              paywall or a big company and rebuilding them from first
+              principles to see how close one focused person can get. This is
+              one of those projects: part chess improvement tool, part proof of
+              what careful engineering and honest benchmarking can do. If it
+              helps you spot the move you keep missing, it did its job.
+            </p>
+            <div style="margin-top: 20px">
+              <a href="index.html" class="a-btn a-btn-outline">Try it on one of your games</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== footer -->
+    <footer class="footer">
+      <div class="shell">
+        <div class="footer-grid">
+          <div>
+            <h4>Product</h4>
+            <ul>
+              <li><a href="index.html">Open the analyser</a></li>
+              <li><a href="about.html">About this project</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Engineering</h4>
+            <ul>
+              <li><a href="https://github.com/joshuakeum9-cell/chess-review">Source on GitHub</a></li>
+              <li><a href="https://github.com/joshuakeum9-cell/chess-review/tree/main/bench">Benchmark suite</a></li>
+              <li><a href="https://github.com/joshuakeum9-cell/chess-review/tree/main/test">Move generator tests</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Credits</h4>
+            <ul>
+              <li>Stockfish 17.1, GPLv3</li>
+              <li>Cburnett piece set, CC BY-SA</li>
+              <li>Lichess ECO opening dataset</li>
+            </ul>
+          </div>
+        </div>
+        <div class="fine-print">
+          Built by Joshua Keum · Free for anyone trying to get better · Your games never leave your browser
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // ---- entrance reveals, in their own script element so a parse error
+      // or exception anywhere else can never strand content at opacity 0.
+      (function () {
+        const root = document.documentElement;
+        if (!root.classList.contains('js-anim')) return;
+        const items = Array.from(document.querySelectorAll('.reveal'));
+        const showAll = () => items.forEach((n) => n.classList.add('is-in'));
+        setTimeout(showAll, 3500);
+        addEventListener('beforeprint', showAll);
+        if (!('IntersectionObserver' in window)) return showAll();
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-in');
+                io.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.12 }
+        );
+        items.forEach((n) => io.observe(n));
+      })();
+    </script>
+    <script>
+      // ---- hero board: a real position with the engine's candidate moves
+      // cycling as chess.com-style arrows and badges. Decorative only.
+      (function () {
+        const svg = document.getElementById('heroBoard');
+        if (!svg) return;
+        const NS = 'http://www.w3.org/2000/svg';
+        const SQ = 40;
+        const el = (name, attrs) => {
+          const n = document.createElementNS(NS, name);
+          for (const k in attrs) n.setAttribute(k, attrs[k]);
+          return n;
+        };
+        const cx = (file) => file * SQ + SQ / 2;
+        const cy = (rank) => (8 - rank) * SQ + SQ / 2;
+
+        for (let r = 0; r < 8; r++) {
+          for (let f = 0; f < 8; f++) {
+            svg.append(
+              el('rect', {
+                x: f * SQ,
+                y: r * SQ,
+                width: SQ,
+                height: SQ,
+                fill: (f + r) % 2 === 0 ? '#ebecd0' : '#739552',
+              })
+            );
+          }
+        }
+
+        // Position after 1. e4 e5: White to move, three candidate moves.
+        const P = [
+          ['w', 'R', 0, 1], ['w', 'N', 1, 1], ['w', 'B', 2, 1], ['w', 'Q', 3, 1],
+          ['w', 'K', 4, 1], ['w', 'B', 5, 1], ['w', 'N', 6, 1], ['w', 'R', 7, 1],
+          ['w', 'P', 0, 2], ['w', 'P', 1, 2], ['w', 'P', 2, 2], ['w', 'P', 3, 2],
+          ['w', 'P', 4, 4], ['w', 'P', 5, 2], ['w', 'P', 6, 2], ['w', 'P', 7, 2],
+          ['b', 'R', 0, 8], ['b', 'N', 1, 8], ['b', 'B', 2, 8], ['b', 'Q', 3, 8],
+          ['b', 'K', 4, 8], ['b', 'B', 5, 8], ['b', 'N', 6, 8], ['b', 'R', 7, 8],
+          ['b', 'P', 0, 7], ['b', 'P', 1, 7], ['b', 'P', 2, 7], ['b', 'P', 3, 7],
+          ['b', 'P', 4, 5], ['b', 'P', 5, 7], ['b', 'P', 6, 7], ['b', 'P', 7, 7],
+        ];
+        for (const [color, type, file, rank] of P) {
+          svg.append(
+            el('image', {
+              href: 'assets/pieces/' + color + type + '.svg',
+              x: file * SQ + 2,
+              y: (8 - rank) * SQ + 2,
+              width: SQ - 4,
+              height: SQ - 4,
+            })
+          );
+        }
+
+        const defs = el('defs', {});
+        const marker = el('marker', {
+          id: 'heroArrowHead',
+          markerWidth: '2.4',
+          markerHeight: '2.8',
+          refX: '2.3',
+          refY: '1.4',
+          orient: 'auto',
+        });
+        marker.append(el('path', { d: 'M0 0 L2.4 1.4 L0 2.8 Z', fill: 'rgba(159,207,63,0.9)' }));
+        defs.append(marker);
+        svg.append(defs);
+
+        const ARROW = 'rgba(159,207,63,0.85)';
+        const shortStart = (x1, y1, x2, y2, by) => {
+          const d = Math.hypot(x2 - x1, y2 - y1) || 1;
+          return [x1 + ((x2 - x1) / d) * by, y1 + ((y2 - y1) / d) * by];
+        };
+        const arrowPath = (d) =>
+          el('path', {
+            d,
+            fill: 'none',
+            stroke: ARROW,
+            'stroke-width': '9',
+            'stroke-linejoin': 'miter',
+            'marker-end': 'url(#heroArrowHead)',
+          });
+
+        const badge = (file, rank, fill, glyph) => {
+          const g = el('g', {});
+          const bx = file * SQ + SQ;
+          const by = (8 - rank) * SQ;
+          g.append(el('circle', { cx: bx, cy: by, r: 10.5, fill, stroke: '#ffffff', 'stroke-width': 1.6 }));
+          const t = el('text', {
+            x: bx,
+            y: by + 0.5,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'central',
+            fill: '#ffffff',
+            'font-size': glyph.length > 1 ? 10 : 12,
+            'font-weight': 800,
+            'font-family': 'Inter, Arial, sans-serif',
+          });
+          t.textContent = glyph;
+          g.append(t);
+          return g;
+        };
+
+        // Cycle A: Ng1-f3, the knight L. Long leg first, then the short leg.
+        const gA = el('g', { class: 'hero-cycle' });
+        {
+          const [sx, sy] = shortStart(cx(6), cy(1), cx(6), cy(3), 13);
+          gA.append(arrowPath(`M ${sx} ${sy} L ${cx(6)} ${cy(3)} L ${cx(5)} ${cy(3)}`));
+          gA.append(badge(5, 3, '#81b64c', '★'));
+        }
+        svg.append(gA);
+
+        // Cycle B: Bf1-c4, the diagonal.
+        const gB = el('g', { class: 'hero-cycle' });
+        {
+          const [sx, sy] = shortStart(cx(5), cy(1), cx(2), cy(4), 13);
+          gB.append(arrowPath(`M ${sx} ${sy} L ${cx(2)} ${cy(4)}`));
+          gB.append(badge(2, 4, '#749bbf', '!'));
+        }
+        svg.append(gB);
+
+        // Cycle C: d2-d4, the straight push.
+        const gC = el('g', { class: 'hero-cycle' });
+        {
+          const [sx, sy] = shortStart(cx(3), cy(2), cx(3), cy(4), 13);
+          gC.append(arrowPath(`M ${sx} ${sy} L ${cx(3)} ${cy(4)}`));
+          gC.append(badge(3, 4, '#26c2a3', '!!'));
+        }
+        svg.append(gC);
+
+        const cycles = [gA, gB, gC];
+        cycles.forEach((g, i) => (g.style.animationDelay = i * 3.5 + 's'));
+      })();
+
+      // ---- stat count-ups.
+      (function () {
+        const nums = Array.from(document.querySelectorAll('.stat-num[data-count]'));
+        if (!nums.length) return;
+        const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const finish = (n) => {
+          const target = Number(n.dataset.count);
+          n.textContent =
+            (n.dataset.prefix || '') + target.toLocaleString('en-US') + (n.dataset.suffix || '');
+        };
+        if (reduced || !('IntersectionObserver' in window)) return nums.forEach(finish);
+        const run = (n) => {
+          const target = Number(n.dataset.count);
+          const t0 = performance.now();
+          const dur = 900;
+          const tick = (t) => {
+            const p = Math.min(1, (t - t0) / dur);
+            const eased = 1 - Math.pow(1 - p, 3);
+            n.textContent =
+              (n.dataset.prefix || '') +
+              Math.round(target * eased).toLocaleString('en-US') +
+              (n.dataset.suffix || '');
+            if (p < 1) requestAnimationFrame(tick);
+            else finish(n);
+          };
+          requestAnimationFrame(tick);
+        };
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                run(entry.target);
+                io.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.4 }
+        );
+        nums.forEach((n) => io.observe(n));
+        setTimeout(() => nums.forEach(finish), 4000);
+      })();
+    </script>
   </body>
 </html>
