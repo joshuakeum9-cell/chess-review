@@ -8,8 +8,8 @@
  * what is actually there.
  */
 
-import { Chess, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from './chess.js?v=202608212125';
-import { staticExchange, PIECE_VALUES } from './classify.js?v=202608212125';
+import { Chess, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING } from './chess.js?v=202608212141';
+import { staticExchange, PIECE_VALUES } from './classify.js?v=202608212141';
 
 export const PIECE_NAMES = {
   p: 'pawn',
