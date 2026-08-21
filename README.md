@@ -325,6 +325,12 @@ machine reproduces the same review exactly.
   proprietary and is deliberately not copied; the board colours, arrow tones
   and badge palette match chess.com's default theme, which are plain colour
   values.
+- Move sounds: one recording of a chess piece placed on a wooden board,
+  `assets/sounds/move.mp3`, by el_boss on Freesound, released under CC0
+  (public domain). Every sound in the app is that single sample re-shaped at
+  runtime. chess.com's sound files are proprietary and are deliberately not
+  copied; what was copied is the measurable acoustic shape of their defaults
+  (audible length and brightness), which `js/sounds.js` documents and matches.
 - Openings: the Lichess ECO dataset (CC0).
 - Engine: Stockfish (GPL-3), see `vendor/LICENSE-NOTE.md`.
 
