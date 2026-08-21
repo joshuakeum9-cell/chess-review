@@ -16,7 +16,7 @@
  * tactics.js. This file only sequences them.
  */
 
-import { Chess } from './chess.js?v=202608211611';
+import { Chess } from './chess.js?v=202608212106';
 import {
   CLASSIFICATIONS,
   classifyMove,
@@ -30,10 +30,10 @@ import {
   phaseOf,
   nonPawnMaterial,
   MATE_CP,
-} from './classify.js?v=202608211611';
-import { identifyOpening, bookDepth, lookupPosition } from './openings.js?v=202608211611';
-import { explainMove } from './explain.js?v=202608211611';
-import { lineToSan } from './tactics.js?v=202608211611';
+} from './classify.js?v=202608212106';
+import { identifyOpening, bookDepth, lookupPosition } from './openings.js?v=202608212106';
+import { explainMove } from './explain.js?v=202608212106';
+import { lineToSan } from './tactics.js?v=202608212106';
 
 export { CLASSIFICATIONS, expectedScore, expectedFromCp };
 
@@ -58,6 +58,69 @@ function terminalEvaluation(board) {
     return { cp: -MATE_CP, mate: 0, lines: [], bestMove: null, terminal: 'checkmate' };
   }
   return { cp: 0, mate: null, lines: [], bestMove: null, terminal: 'draw' };
+}
+
+/* Turn one engine result into the position record everything downstream
+ * reads. Shared by the whole-game pass and by single-position analysis in
+ * explore mode, so a position invented at the board is described exactly the
+ * way a position from the game is. */
+function buildPosition(fen, board, raw) {
+  const toMove = board.turn;
+  const sign = toMove === 'w' ? 1 : -1;
+  const top = raw.lines[0];
+
+  // Everything the mover could have played that this search scored, best
+  // first. Scores inside one search are directly comparable.
+  const candidates = raw.lines
+    .filter((l) => l.pv && l.pv[0])
+    .map((l) => ({
+      uci: l.pv[0],
+      cp: l.cp,
+      mate: l.mate ?? null,
+      wdl: l.wdl || null,
+      expected: expectedScore({ wdl: l.wdl, cp: l.cp, mate: l.mate }),
+      san: (new Chess(fen).move(l.pv[0]) || {}).san || null,
+      lineSan: lineToSan(fen, l.pv, 6),
+      cpWhite: l.cp * sign,
+      mateWhite: l.mate === null || l.mate === undefined ? null : l.mate * sign,
+    }));
+
+  return {
+    fen,
+    toMove,
+    cpWhite: raw.cp * sign,
+    mateWhite: raw.mate === null || raw.mate === undefined ? null : raw.mate * sign,
+    cpMover: raw.cp,
+    wdl: raw.wdl,
+    expected: expectedScore({ wdl: raw.wdl, cp: raw.cp, mate: raw.mate }),
+    expectedWhite:
+      toMove === 'w'
+        ? expectedScore({ wdl: raw.wdl, cp: raw.cp, mate: raw.mate })
+        : 100 - expectedScore({ wdl: raw.wdl, cp: raw.cp, mate: raw.mate }),
+    volatility: volatility({ wdl: raw.wdl, cp: raw.cp }),
+    bestMove: raw.bestMove,
+    bestSan: raw.bestMove ? (new Chess(fen).move(raw.bestMove) || {}).san || null : null,
+    pv: top ? top.pv : [],
+    pvSan: top ? lineToSan(fen, top.pv, 8) : [],
+    candidates,
+    legalCount: board.isGameOver() ? 0 : board.moves().length,
+    playedScore: null, // filled in by pass 2
+    terminal: raw.terminal || null,
+    depth: raw.depth || 0,
+  };
+}
+
+/* Normalise a pool result into the shape buildPosition wants. */
+function rawFromResult(res) {
+  const top = res.lines[0] || { cp: 0, mate: null, pv: [], wdl: null };
+  return {
+    cp: top.cp,
+    mate: top.mate ?? null,
+    wdl: top.wdl || null,
+    lines: res.lines,
+    bestMove: res.bestMove || (top.pv && top.pv[0]) || null,
+    depth: res.depth,
+  };
 }
 
 /* Analyse every position, then score every played move in its own frame.
@@ -104,68 +167,17 @@ export async function analysePositions(game, pool, opts = {}) {
   for (let i = 0; i < fens.length; i++) {
     const fen = fens[i];
     const board = boards[i];
-    const toMove = board.turn;
 
     let raw;
     if (jobs[i] === null) {
       raw = terminalEvaluation(board);
     } else if (raws[i]) {
-      const res = raws[i];
-      const top = res.lines[0] || { cp: 0, mate: null, pv: [], wdl: null };
-      raw = {
-        cp: top.cp,
-        mate: top.mate ?? null,
-        wdl: top.wdl || null,
-        lines: res.lines,
-        bestMove: res.bestMove || (top.pv && top.pv[0]) || null,
-        depth: res.depth,
-      };
+      raw = rawFromResult(raws[i]);
     } else {
       break; // cancelled before this slot
     }
 
-    const sign = toMove === 'w' ? 1 : -1;
-    const top = raw.lines[0];
-
-    // Everything the mover could have played that this search scored, best
-    // first. Scores inside one search are directly comparable.
-    const candidates = raw.lines
-      .filter((l) => l.pv && l.pv[0])
-      .map((l) => ({
-        uci: l.pv[0],
-        cp: l.cp,
-        mate: l.mate ?? null,
-        wdl: l.wdl || null,
-        expected: expectedScore({ wdl: l.wdl, cp: l.cp, mate: l.mate }),
-        san: (new Chess(fen).move(l.pv[0]) || {}).san || null,
-        lineSan: lineToSan(fen, l.pv, 6),
-        cpWhite: l.cp * sign,
-        mateWhite: l.mate === null || l.mate === undefined ? null : l.mate * sign,
-      }));
-
-    results.push({
-      fen,
-      toMove,
-      cpWhite: raw.cp * sign,
-      mateWhite: raw.mate === null || raw.mate === undefined ? null : raw.mate * sign,
-      cpMover: raw.cp,
-      wdl: raw.wdl,
-      expected: expectedScore({ wdl: raw.wdl, cp: raw.cp, mate: raw.mate }),
-      expectedWhite:
-        toMove === 'w'
-          ? expectedScore({ wdl: raw.wdl, cp: raw.cp, mate: raw.mate })
-          : 100 - expectedScore({ wdl: raw.wdl, cp: raw.cp, mate: raw.mate }),
-      volatility: volatility({ wdl: raw.wdl, cp: raw.cp }),
-      bestMove: raw.bestMove,
-      bestSan: raw.bestMove ? (new Chess(fen).move(raw.bestMove) || {}).san || null : null,
-      pv: top ? top.pv : [],
-      pvSan: top ? lineToSan(fen, top.pv, 8) : [],
-      candidates,
-      legalCount: board.isGameOver() ? 0 : board.moves().length,
-      playedScore: null, // filled in by pass 2
-      terminal: raw.terminal || null,
-      depth: raw.depth || 0,
-    });
+    results.push(buildPosition(fen, board, raw));
   }
 
   // Attach played-move scores. The candidate entry wins when the MultiPV
@@ -342,103 +354,23 @@ export function buildReport(game, positions) {
     const after = positions[i + 1];
     if (!before || !after) break;
 
-    const sign = move.color === 'w' ? 1 : -1;
-
-    // Expected score for the mover, before and after, from the same frame
-    // wherever pass 1 or pass 2 supplied it.
-    const expBefore = before.expected;
-    const played = before.playedScore;
-    const expAfter = played
-      ? played.expected
-      : 100 - after.expected; // fallback: flip the opponent's view
-
-    const hadMate = before.mateWhite !== null && before.mateWhite * sign > 0;
-    const stillMating = !!(played && played.mate !== null && played.mate > 0);
-
-    const sacrificed = sacrificeSize(move.fenBefore, move);
-
-    // Taking back on the square the opponent just took on. Obvious, and so
-    // never Great or Brilliant however much the alternatives lose.
-    const previous = i > 0 ? game.moves[i - 1] : null;
-    const isRecapture = !!(previous && move.captured && move.to === previous.to);
-    const inCheck = new Chess(move.fenBefore).inCheck();
-
-    const verdict = classifyMove({
-      before: { expected: expBefore, wdl: before.wdl, cp: before.cpMover },
-      after: { expected: expAfter },
-      played: { uci: move.uci, san: move.san },
-      bestMove: before.bestMove,
-      candidates: before.candidates,
-      legalCount: before.legalCount,
+    const reviewed = reviewMove({
+      move,
+      before,
+      after,
+      ply: i + 1,
+      previous: i > 0 ? game.moves[i - 1] : null,
       isBook: i + 1 <= theory,
-      sacrificed,
-      hadMate,
-      keptMate: stillMating,
-      isRecapture,
-      inCheck,
+      theory,
+      fallbackOpeningName: opening.name,
     });
 
-    const phase = phaseOf(move.fenAfter, theory, i + 1);
-    const bookEntry = lookupPosition(move.fenAfter);
-
     moves.push({
-      ...move,
+      ...reviewed,
       index: i,
-      classification: verdict.type,
-      loss: verdict.loss,
-      accuracy: verdict.accuracy,
       volatility: before.volatility,
       weight: weights[i] ?? 1,
-      counts: verdict.type !== 'book',
-      playedBest: verdict.playedBest,
-      viable: verdict.viable,
-      alternativeCost: verdict.alternativeCost,
-      decided: verdict.decided,
-      sacrificed,
-      phase,
-      openingName: bookEntry ? bookEntry.n : null,
-      evalBeforeWhite: before.cpWhite,
-      evalAfterWhite: played ? played.cpWhite : after.cpWhite,
-      mateBeforeWhite: before.mateWhite,
-      mateAfterWhite: played ? played.mateWhite : after.mateWhite,
-      expectedBefore: expBefore,
-      expectedAfter: expAfter,
-      winBefore: expBefore,
-      winAfter: expAfter,
-      winLoss: verdict.loss,
-      bestMove: before.bestMove,
-      bestSan: before.bestSan,
-      bestLineSan: before.pvSan,
-      replySan: after.pvSan,
-      depth: before.depth,
-      explanation: explainMove({
-        type: verdict.type,
-        move,
-        loss: verdict.loss,
-        bestMove: before.bestMove,
-        bestSan: before.bestSan,
-        bestPv: before.pv,
-        replyPv: after.pv,
-        // The played move's own continuation, from its searchmoves search or
-        // its candidate entry. An explanation for the played move may quote
-        // only this, never the best move's PV.
-        playedPv: played ? played.pv || null : null,
-        playedLineSan: played && played.lineSan ? played.lineSan : null,
-        isEngineChoice: move.uci === before.bestMove,
-        // What the move did to the game itself: 'checkmate' or 'draw' when it
-        // ended it. A stalemate delivered from a winning position is a
-        // different sentence from an evaluation slip.
-        terminalAfter: after.terminal || null,
-        expectedBefore: expBefore,
-        expectedAfter: expAfter,
-        sacrificed,
-        hadMate,
-        mateBefore: before.mateWhite === null ? null : before.mateWhite * sign,
-        keptMate: stillMating,
-        alternativeCost: verdict.alternativeCost,
-        openingName: bookEntry ? bookEntry.n : opening.name,
-        phase,
-      }),
+      counts: reviewed.classification !== 'book',
     });
   }
 
@@ -453,6 +385,117 @@ export function buildReport(game, positions) {
     positions,
     phases,
     keyMoments: findKeyMoments(moves),
+  };
+}
+
+/* Judge one move and write its verdict, numbers and prose.
+ *
+ * Used for the moves actually played in the game and, unchanged, for moves
+ * invented on the board in explore mode: a made-up move deserves the same
+ * standard of evidence as a real one, so there is exactly one code path.
+ */
+function reviewMove({
+  move,
+  before,
+  after,
+  ply,
+  previous = null,
+  isBook = false,
+  theory = 0,
+  fallbackOpeningName = null,
+}) {
+  const sign = move.color === 'w' ? 1 : -1;
+
+  // Expected score for the mover, before and after, from the same frame
+  // wherever pass 1 or pass 2 supplied it.
+  const expBefore = before.expected;
+  const played = before.playedScore;
+  const expAfter = played
+    ? played.expected
+    : 100 - after.expected; // fallback: flip the opponent's view
+
+  const hadMate = before.mateWhite !== null && before.mateWhite * sign > 0;
+  const stillMating = !!(played && played.mate !== null && played.mate > 0);
+
+  const sacrificed = sacrificeSize(move.fenBefore, move);
+
+  // Taking back on the square the opponent just took on. Obvious, and so
+  // never Great or Brilliant however much the alternatives lose.
+  const isRecapture = !!(previous && move.captured && move.to === previous.to);
+  const inCheck = new Chess(move.fenBefore).inCheck();
+
+  const verdict = classifyMove({
+    before: { expected: expBefore, wdl: before.wdl, cp: before.cpMover },
+    after: { expected: expAfter },
+    played: { uci: move.uci, san: move.san },
+    bestMove: before.bestMove,
+    candidates: before.candidates,
+    legalCount: before.legalCount,
+    isBook,
+    sacrificed,
+    hadMate,
+    keptMate: stillMating,
+    isRecapture,
+    inCheck,
+  });
+
+  const phase = phaseOf(move.fenAfter, theory, ply);
+  const bookEntry = lookupPosition(move.fenAfter);
+
+  return {
+    ...move,
+    classification: verdict.type,
+    loss: verdict.loss,
+    accuracy: verdict.accuracy,
+    playedBest: verdict.playedBest,
+    viable: verdict.viable,
+    alternativeCost: verdict.alternativeCost,
+    decided: verdict.decided,
+    sacrificed,
+    phase,
+    openingName: bookEntry ? bookEntry.n : null,
+    evalBeforeWhite: before.cpWhite,
+    evalAfterWhite: played ? played.cpWhite : after.cpWhite,
+    mateBeforeWhite: before.mateWhite,
+    mateAfterWhite: played ? played.mateWhite : after.mateWhite,
+    expectedBefore: expBefore,
+    expectedAfter: expAfter,
+    winBefore: expBefore,
+    winAfter: expAfter,
+    winLoss: verdict.loss,
+    bestMove: before.bestMove,
+    bestSan: before.bestSan,
+    bestLineSan: before.pvSan,
+    replySan: after.pvSan,
+    depth: before.depth,
+    explanation: explainMove({
+      type: verdict.type,
+      move,
+      loss: verdict.loss,
+      bestMove: before.bestMove,
+      bestSan: before.bestSan,
+      bestPv: before.pv,
+      replyPv: after.pv,
+      // The played move's own continuation, from its searchmoves search or
+      // its candidate entry. An explanation for the played move may quote
+      // only this, never the best move's PV.
+      playedPv: played ? played.pv || null : null,
+      playedLineSan: played && played.lineSan ? played.lineSan : null,
+      isEngineChoice: move.uci === before.bestMove,
+      // What the move did to the game itself: 'checkmate' or 'draw' when it
+      // ended it. A stalemate delivered from a winning position is a
+      // different sentence from an evaluation slip.
+      terminalAfter: after.terminal || null,
+      expectedBefore: expBefore,
+      expectedAfter: expAfter,
+      sacrificed,
+      hadMate,
+      mateBefore: before.mateWhite === null ? null : before.mateWhite * sign,
+      keptMate: stillMating,
+      alternativeCost: verdict.alternativeCost,
+      openingName: bookEntry ? bookEntry.n : fallbackOpeningName,
+      phase,
+    }),
   };
 }
 
@@ -511,3 +554,84 @@ function findKeyMoments(moves) {
 }
 
 export { nonPawnMaterial };
+
+/* ------------------------------------------------------------------ */
+/* explore mode: reviewing lines that were never played                */
+/* ------------------------------------------------------------------ */
+
+/* One position, analysed on its own, in the same shape as a position from
+ * the game pass. */
+export async function analysePosition(fen, pool, opts = {}) {
+  const { depth = 14, multipv = 3 } = opts;
+  const board = new Chess(fen);
+  if (board.isGameOver()) return buildPosition(fen, board, terminalEvaluation(board));
+  const res = await pool.analyseOne(fen, { depth, multipv });
+  return buildPosition(fen, board, rawFromResult(res));
+}
+
+/* Review a move that was never played in the game.
+ *
+ * Same evidence as a real move gets: the position before it searched with
+ * MultiPV so the alternatives are known, the move's own score taken from
+ * that same search when it appears there and from a dedicated `searchmoves`
+ * search when it does not (never from the next position, which sits a ply
+ * deeper and would make every move look slightly bad), and the position it
+ * leads to, which supplies both the reply line and the engine's best move in
+ * the new line.
+ *
+ * Returns the reviewed move plus both positions, so the caller can drive the
+ * eval bar, the arrow and the engine list from the line rather than from the
+ * game.
+ */
+export async function reviewVariationMove(move, pool, opts = {}) {
+  const { depth = 14, previous = null, multipv = 3 } = opts;
+
+  const before = await analysePosition(move.fenBefore, pool, { depth, multipv });
+
+  // The move's own score, from the same frame as the alternatives where
+  // possible, otherwise from its own search.
+  let played = before.candidates.find((c) => c.uci === move.uci) || null;
+  if (!played) {
+    const res = await pool.analyseOne(move.fenBefore, {
+      depth,
+      multipv: 1,
+      searchmoves: [move.uci],
+    });
+    const top = res.lines[0];
+    if (top) {
+      const sign = before.toMove === 'w' ? 1 : -1;
+      played = {
+        uci: move.uci,
+        cp: top.cp,
+        mate: top.mate ?? null,
+        wdl: top.wdl || null,
+        expected: expectedScore({ wdl: top.wdl, cp: top.cp, mate: top.mate }),
+        cpWhite: top.cp * sign,
+        mateWhite: top.mate === null || top.mate === undefined ? null : top.mate * sign,
+        pv: top.pv || [],
+        lineSan: lineToSan(move.fenBefore, top.pv || [], 6),
+      };
+    }
+  }
+  before.playedScore = played;
+
+  const after = await analysePosition(move.fenAfter, pool, { depth, multipv });
+
+  // A move is only "book" here if it kept the line inside known theory: the
+  // position it came from and the one it leads to are both named lines.
+  const isBook = !!(lookupPosition(move.fenBefore) && lookupPosition(move.fenAfter));
+  const bookEntry = lookupPosition(move.fenAfter);
+
+  const reviewed = reviewMove({
+    move,
+    before,
+    after,
+    ply: move.ply || 1,
+    previous,
+    isBook,
+    theory: isBook ? move.ply || 1 : 0,
+    fallbackOpeningName: bookEntry ? bookEntry.n : null,
+  });
+
+  return { reviewed, before, after };
+}

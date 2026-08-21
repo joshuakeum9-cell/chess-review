@@ -6,7 +6,7 @@
  * order it happens to store. Position keys catch transpositions for free.
  */
 
-import { OPENING_POSITIONS } from './opening-data.js?v=202608211611';
+import { OPENING_POSITIONS } from './opening-data.js?v=202608212106';
 
 /* FNV-1a over the position-defining part of a FEN. Must match exactly the
  * hash used by scripts/build-openings.mjs. */

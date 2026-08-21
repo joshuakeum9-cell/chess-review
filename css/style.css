@@ -285,8 +285,10 @@ textarea {
 /* ---------------------------------------------------------------- evalbar */
 .evalbar {
   position: relative;
-  width: 28px;
-  flex: 0 0 28px;
+  /* Wide enough for the widest label the bar ever shows ("-12.5", "+0.36"):
+   * at 28px the text was clipped by the bar's own overflow. */
+  width: 34px;
+  flex: 0 0 34px;
   border-radius: var(--r);
   overflow: hidden;
   background: var(--black-bar);
@@ -319,6 +321,8 @@ textarea {
   font-weight: 700;
   color: #403d39;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 .evalbar.is-black-ahead .evalbar-label {
   bottom: auto;
@@ -1285,4 +1289,66 @@ body.theme-dark .avatar-b {
 /* The nav needs its own edge now that the page below it is also black. */
 body.theme-dark .topbar {
   border-bottom: 1px solid var(--hairline);
+}
+
+/* ------------------------------------------------------ sound + variation */
+.sound-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+}
+.sound-btn.is-muted {
+  color: var(--mute);
+}
+
+/* The line you build on the board, reviewed move by move. */
+.variation-panel {
+  display: flex;
+  flex-direction: column;
+}
+.var-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 14px 4px;
+}
+.var-move {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  color: var(--ink);
+  padding: 5px 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.var-move:hover {
+  background: var(--surface-soft);
+}
+.var-move.is-current {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+  cursor: default;
+}
+.var-num {
+  color: var(--mute);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.var-move.is-current .var-num {
+  color: rgba(0, 0, 0, 0.6);
+}
+.var-note {
+  margin: 0;
+  padding: 8px 14px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mute);
 }

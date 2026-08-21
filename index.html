@@ -10,7 +10,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
     />
-    <link rel="stylesheet" href="css/style.css?v=202608211611" />
+    <link rel="stylesheet" href="css/style.css?v=202608212106" />
   </head>
   <body class="theme-dark">
     <header class="topbar">
@@ -152,6 +152,12 @@
           <button id="nextBtn" class="btn btn-icon" title="Next (→)">▶</button>
           <button id="lastBtn" class="btn btn-icon" title="End (End)">⏭</button>
           <button id="exitExploreBtn" class="btn btn-ghost" hidden>Back to game</button>
+          <button
+            id="soundBtn"
+            class="btn btn-icon sound-btn"
+            title="Move sounds"
+            aria-pressed="true"
+          ></button>
         </div>
 
         <div class="analysis-bar">
@@ -227,6 +233,18 @@
           <ol class="engine-lines" id="engineLines"></ol>
         </div>
 
+        <div class="panel variation-panel" id="variationPanel" hidden>
+          <div class="moves-head">
+            <span>Your line</span>
+            <span class="moves-hint">click a move to rewind</span>
+          </div>
+          <div class="var-moves" id="variationMoves"></div>
+          <p class="var-note">
+            Every move you play here is judged the same way the game is, and the
+            green arrow shows the engine's best move in the line you have built.
+          </p>
+        </div>
+
         <div class="panel moves-panel">
           <div class="moves-head">
             <span>Moves</span>
@@ -239,6 +257,6 @@
       </section>
     </main>
 
-    <script type="module" src="js/app.js?v=202608211611"></script>
+    <script type="module" src="js/app.js?v=202608212106"></script>
   </body>
 </html>

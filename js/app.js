@@ -1,17 +1,20 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608211611';
-import { EnginePool } from './engine.js?v=202608211611';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608212106';
+import { EnginePool } from './engine.js?v=202608212106';
 import {
   analysePositions,
+  analysePosition,
   verifyFlaggedMoves,
   buildReport,
+  reviewVariationMove,
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608211611';
-import { BoardView } from './board.js?v=202608211611';
-import { chipHtml, classColor } from './icons.js?v=202608211611';
+} from './review.js?v=202608212106';
+import { BoardView } from './board.js?v=202608212106';
+import { chipHtml, classColor } from './icons.js?v=202608212106';
+import { SoundBoard } from './sounds.js?v=202608212106';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -41,6 +44,7 @@ const state = {
 
 const engine = new EnginePool();
 let engineReady = null;
+const sounds = new SoundBoard();
 
 const board = new BoardView($('board'), {
   onSquareClick: handleSquareClick,
@@ -306,10 +310,11 @@ async function runAnalysis() {
     renderSummary();
     renderGraph();
     renderMoveList();
-    goToPly(0);
+    goToPly(0, { silent: true });
     // Chess.com shows you the report card first, then you step into the game.
     $('reportPlaceholder').hidden = true;
     $('reportContent').hidden = false;
+    sounds.play('ready');
   } catch (err) {
     showTransientError(err.message || String(err));
     errored = true;
@@ -360,14 +365,31 @@ function renderPlayers() {
 
 function renderPosition() {
   if (state.explore) {
-    const chess = state.explore.chess;
-    const last = state.explore.moves[state.explore.moves.length - 1];
+    const ex = state.explore;
+    const chess = ex.chess;
+    const last = ex.moves[ex.moves.length - 1];
+    const review = ex.reviews[ex.reviews.length - 1];
+
     board.setPosition(chess.fen(), {
-      lastMove: last ? { from: last.fromSquare, to: last.toSquare } : null,
+      lastMove: last ? { from: last.from, to: last.to } : null,
+      // The verdict badge lands on the square you moved to, exactly as it
+      // does for a move from the game.
+      classification: review ? review.classification : null,
       checkSquare: checkSquareFor(chess),
     });
-    board.setArrows([]);
-    updateEvalBar(state.explore.cpWhite, state.explore.mateWhite);
+
+    // The engine's best move in the line you built, which is the whole point
+    // of exploring: what should be played *here*.
+    const after = ex.after;
+    board.setArrows(
+      after && after.bestMove && after.bestMove.length >= 4
+        ? [{ from: after.bestMove.slice(0, 2), to: after.bestMove.slice(2, 4), kind: 'best' }]
+        : []
+    );
+
+    updateEvalBar(ex.cpWhite, ex.mateWhite);
+    renderEngineLines();
+    renderVariation();
     return;
   }
 
@@ -406,11 +428,20 @@ function renderPosition() {
   renderGraphCursor();
 }
 
+/* The position the board is showing: a position from the game, or the one at
+ * the end of the line being explored. Everything that describes the current
+ * position (eval bar, best-move arrow, engine list) reads it from here, so a
+ * line you invented gets the same treatment as the game. */
+function currentPosition() {
+  if (state.explore) return state.explore.after;
+  return state.positions ? state.positions[state.ply] : null;
+}
+
 /* The engine's top candidate moves for the position on the board, with their
  * evaluations. Lets you check the verdict rather than take it on trust. */
 function renderEngineLines() {
   const panel = $('enginePanel');
-  const pos = state.positions && state.positions[state.ply];
+  const pos = currentPosition();
   if (!pos) {
     panel.hidden = true;
     return;
@@ -435,7 +466,9 @@ function renderEngineLines() {
   $('engineDepth').textContent = `depth ${pos.depth}`;
 
   const playedUci =
-    state.ply < state.game.moves.length ? state.game.moves[state.ply].uci : null;
+    !state.explore && state.ply < state.game.moves.length
+      ? state.game.moves[state.ply].uci
+      : null;
 
   const list = $('engineLines');
   list.innerHTML = '';
@@ -472,7 +505,9 @@ function renderEngineLines() {
 /* Click an engine line to walk into it from the current position. */
 async function previewCandidate(cand) {
   if (!cand.uci) return;
-  const chess = new Chess(fenAtPly(state.ply));
+  // Clicking a line while exploring continues the line you built, rather than
+  // starting a new one from the game.
+  const chess = state.explore ? state.explore.chess : new Chess(fenAtPly(state.ply));
   const legal = chess.moves({ verbose: true }).find((m) => m.uci === cand.uci);
   if (!legal) return;
   await playExploratoryMove(chess, legal);
@@ -731,7 +766,12 @@ function renderDetail(reviewed) {
   $('exploreNote').hidden = true;
   const actions = $('detailActions');
   actions.innerHTML = '';
-  if (['inaccuracy', 'mistake', 'blunder', 'miss'].includes(reviewed.classification)) {
+  // The better-move replay steps back to a position from the game, so it is
+  // only offered for moves the game actually contains.
+  if (
+    !reviewed.isVariation &&
+    ['inaccuracy', 'mistake', 'blunder', 'miss'].includes(reviewed.classification)
+  ) {
     actions.hidden = false;
     const show = document.createElement('button');
     show.className = 'btn btn-ghost';
@@ -854,13 +894,17 @@ function renderGraphCursor() {
 /* navigation & exploration                                            */
 /* ------------------------------------------------------------------ */
 
-function goToPly(ply) {
+function goToPly(ply, opts = {}) {
   if (!state.game) return;
   state.explore = null;
   state.pinnedArrows = null;
   $('exitExploreBtn').hidden = true;
+  $('variationPanel').hidden = true;
   state.ply = Math.max(0, Math.min(state.game.moves.length, ply));
   renderPosition();
+  // The move that produced the position now on the board, so stepping through
+  // a game sounds like playing it.
+  if (!opts.silent && state.ply > 0) sounds.playMove(state.game.moves[state.ply - 1]);
 }
 
 function updateEvalBarFromPly(ply) {
@@ -900,71 +944,201 @@ async function tryUserMove(fromSquare, toSquare) {
   const legal = chess
     .moves({ verbose: true, square: fromSquare })
     .find((m) => m.toSquare === toSquare);
-  if (!legal) return;
+  if (!legal) {
+    // Picking a piece up and putting it back is a change of mind, not a
+    // mistake, so it stays silent.
+    if (fromSquare !== toSquare) sounds.play('illegal');
+    return;
+  }
   board.setSelection(null);
   await playExploratoryMove(chess, legal);
 }
 
 async function playExploratoryMove(chess, move) {
   const working = state.explore ? chess : new Chess(chess.fen());
-  if (!state.explore) {
-    state.explore = { chess: working, moves: [], startPly: state.ply, cpWhite: 0, mateWhite: null };
-  }
+  const fenBefore = working.fen();
   const made = working.move({ from: move.fromSquare, to: move.toSquare, promotion: 'q' });
   if (!made) return;
-  state.explore.moves.push(made);
 
+  if (!state.explore) {
+    state.explore = {
+      chess: working,
+      moves: [],
+      reviews: [],
+      startPly: state.ply,
+      cpWhite: 0,
+      mateWhite: null,
+      after: null,
+      seq: 0,
+    };
+  }
+  const ex = state.explore;
+
+  // Same record shape a move parsed out of a PGN has, so the review code
+  // cannot tell the difference between this move and one from the game.
+  const record = {
+    san: made.san,
+    uci: made.uci,
+    color: made.color,
+    from: made.fromSquare,
+    to: made.toSquare,
+    piece: made.piece,
+    captured: made.captured || null,
+    fenBefore,
+    fenAfter: working.fen(),
+    ply: ex.startPly + ex.moves.length + 1,
+  };
+  ex.moves.push(record);
+  ex.reviews.push(null);
+  ex.after = null;
+
+  sounds.playMove(record);
   $('exitExploreBtn').hidden = false;
   board.setSelection(null);
   renderPosition();
+  showVariationPending(record);
 
-  const note = $('exploreNote');
+  const seq = ++ex.seq;
+  try {
+    await ensureEngine();
+    const previous =
+      ex.moves.length > 1
+        ? ex.moves[ex.moves.length - 2]
+        : ex.startPly > 0
+          ? state.game.moves[ex.startPly - 1]
+          : null;
+
+    const { reviewed, after } = await reviewVariationMove(record, engine, {
+      depth: reviewDepth(),
+      previous,
+    });
+
+    // A newer move (or a jump back to the game) landed while this search was
+    // running: its answer describes a position nobody is looking at.
+    if (!state.explore || state.explore !== ex || ex.seq !== seq) return;
+
+    reviewed.isVariation = true;
+    ex.reviews[ex.reviews.length - 1] = reviewed;
+    ex.after = after;
+    ex.cpWhite = after.cpWhite;
+    ex.mateWhite = after.mateWhite;
+
+    renderPosition();
+    renderDetail(reviewed);
+  } catch (err) {
+    if (state.explore === ex && ex.seq === seq) {
+      $('detailText').textContent = `Could not analyse this line: ${err.message}`;
+    }
+  }
+}
+
+function reviewDepth() {
+  return state.depth || parseInt($('depthSelect').value, 10) || 14;
+}
+
+/* What the detail panel shows while the engine is judging an invented move. */
+function showVariationPending(record) {
   $('detailEmpty').hidden = true;
   $('detailBody').hidden = false;
   $('detailBadge').innerHTML =
     '<svg class="chip-icon" width="38" height="38" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#6b7280"/><text x="12" y="12.5" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="13" font-weight="800">?</text></svg>';
   $('detailBadge').style.background = 'transparent';
-  $('detailTitle').textContent = 'Exploring';
+  $('detailTitle').textContent = 'Judging your move';
   $('detailTitle').style.color = '#a7a7a7';
-  $('detailMove').textContent = state.explore.moves.map((m) => m.san).join(' ');
-  $('detailText').textContent = 'Asking the engine…';
+  const moveNo = Math.floor((record.ply - 1) / 2) + 1;
+  const dots = record.color === 'w' ? '.' : '...';
+  $('detailMove').textContent = `${moveNo}${dots} ${record.san}`;
+  $('detailEval').textContent = '…';
+  $('detailText').textContent = 'Searching this position at full review depth.';
   $('detailLine').hidden = true;
-  note.hidden = true;
+  $('detailActions').hidden = true;
+  $('exploreNote').hidden = true;
+}
 
+/* The line you have built, move by move, with each verdict. Clicking a move
+ * rewinds the line to it so you can branch somewhere else. */
+function renderVariation() {
+  const panel = $('variationPanel');
+  const ex = state.explore;
+  if (!ex || !ex.moves.length) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+
+  const list = $('variationMoves');
+  list.innerHTML = '';
+  ex.moves.forEach((move, i) => {
+    const review = ex.reviews[i];
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'var-move' + (i === ex.moves.length - 1 ? ' is-current' : '');
+    const moveNo = Math.floor((move.ply - 1) / 2) + 1;
+    const dots = move.color === 'w' ? '.' : '...';
+    item.innerHTML =
+      `<span class="var-num">${moveNo}${dots}</span>` +
+      `<span class="var-san">${escapeHtml(move.san)}</span>` +
+      (review ? chipHtml(review.classification, 15) : '');
+    item.title = 'Rewind the line to here';
+    item.addEventListener('click', () => rewindVariation(i));
+    list.append(item);
+  });
+}
+
+/* Take the line back to the given move: drop everything after it, restore the
+ * board, and show that move's verdict again. */
+function rewindVariation(index) {
+  const ex = state.explore;
+  if (!ex || index >= ex.moves.length - 1) return;
+
+  const keep = ex.moves.slice(0, index + 1);
+  ex.chess = new Chess(keep[keep.length - 1].fenAfter);
+  ex.moves = keep;
+  ex.reviews = ex.reviews.slice(0, index + 1);
+  ex.seq++; // any search still running belongs to a move that no longer exists
+
+  const review = ex.reviews[index];
+  ex.after = null;
+  if (review) {
+    ex.cpWhite = review.evalAfterWhite;
+    ex.mateWhite = review.mateAfterWhite;
+  }
+
+  sounds.playMove(keep[keep.length - 1]);
+  board.setSelection(null);
+  renderPosition();
+  if (review) renderDetail(review);
+
+  // The engine list and best-move arrow describe the position at the end of
+  // the line, so they have to be re-established for the position we landed on.
+  refreshVariationPosition();
+}
+
+/* Re-analyse the position at the end of the current line, after a rewind. */
+async function refreshVariationPosition() {
+  const ex = state.explore;
+  if (!ex) return;
+  const seq = ex.seq;
   try {
     await ensureEngine();
-    const res = await engine.analyseOne(working.fen(), { depth: 12, multipv: 1 });
-    const top = res.lines[0];
-    if (!top) return;
-    const sign = working.turn === 'w' ? 1 : -1;
-    state.explore.cpWhite = top.cp * sign;
-    state.explore.mateWhite = top.mate === null || top.mate === undefined ? null : top.mate * sign;
-    updateEvalBar(state.explore.cpWhite, state.explore.mateWhite);
-
-    const pvBoard = new Chess(working.fen());
-    const pvSan = [];
-    for (const uci of top.pv.slice(0, 6)) {
-      const m = pvBoard.move(uci);
-      if (!m) break;
-      pvSan.push(m.san);
-    }
-    $('detailEval').textContent = formatEval(state.explore.cpWhite, state.explore.mateWhite);
-    $('detailText').textContent = `After ${made.san} the engine evaluates this at ${formatEval(
-      state.explore.cpWhite,
-      state.explore.mateWhite
-    )}.`;
-    if (pvSan.length) {
-      $('detailLine').hidden = false;
-      $('detailLineMoves').textContent = pvSan.join(' ');
-    }
-  } catch (err) {
-    $('detailText').textContent = `Could not analyse this line: ${err.message}`;
+    const after = await analysePosition(ex.chess.fen(), engine, {
+      depth: reviewDepth(),
+      multipv: 3,
+    });
+    if (!state.explore || state.explore !== ex || ex.seq !== seq) return;
+    ex.after = after;
+    ex.cpWhite = after.cpWhite;
+    ex.mateWhite = after.mateWhite;
+    renderPosition();
+  } catch {
+    /* the board is still correct without it */
   }
 }
 
 function exitExplore() {
   state.explore = null;
   $('exitExploreBtn').hidden = true;
+  $('variationPanel').hidden = true;
   board.setSelection(null);
   renderPosition();
 }
@@ -1099,10 +1273,45 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+/* ---- move sounds ---- */
+
+const SPEAKER_ON =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>' +
+  '<path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+const SPEAKER_OFF =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
+
+function renderSoundButton() {
+  const btn = $('soundBtn');
+  btn.innerHTML = sounds.enabled ? SPEAKER_ON : SPEAKER_OFF;
+  btn.setAttribute('aria-pressed', sounds.enabled ? 'true' : 'false');
+  btn.classList.toggle('is-muted', !sounds.enabled);
+  btn.title = sounds.enabled ? 'Move sounds are on' : 'Move sounds are off';
+}
+
+$('soundBtn').addEventListener('click', () => {
+  sounds.setEnabled(!sounds.enabled);
+  renderSoundButton();
+  if (sounds.enabled) sounds.play('move'); // so you hear what you turned on
+});
+renderSoundButton();
+
+/* Browsers only allow audio to start inside a user gesture. Every sound here
+ * follows a click or a key press anyway, but warming the context on the first
+ * interaction means the very first move sound is not the one that gets eaten. */
+for (const type of ['pointerdown', 'keydown']) {
+  addEventListener(type, () => sounds.unlock(), { once: true, passive: true });
+}
+
 /* Exposed for inspection from the console: the parsed game, every position's
  * evaluation, and the finished report. Handy when a verdict looks wrong and
  * you want the numbers behind it. */
 window.chessReview = state;
+window.chessReviewSounds = sounds;
 
 /* Boot: show the starting position and warm the engine up in the background. */
 board.setPosition(new Chess().fen());
