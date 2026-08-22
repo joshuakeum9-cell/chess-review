@@ -10,9 +10,12 @@
  *
  * These are measurements, not audio. The synthesis in sounds.js is an
  * independent imitation built from oscillators and noise; no recording is
- * sampled or shipped. Voice names map onto this app's events: `mate` uses
- * the measured game-end sound (what chess.com plays when a game ends) and
- * `ready` uses the measured notify chime.
+ * sampled or shipped. Voice names map onto this app's events: `mate` and
+ * `stalemate` model the composite sequences heard live on chess.com (the
+ * check or move knock followed by the game-end knock-knock), measured from
+ * reference recordings Joshua supplied; `gameover` is the game-end sound
+ * alone and `ready` the notify chime. Composite voices carry per-strike
+ * mode sets, clicks and attacks.
  *
  * Fidelity vs reference (log-spectral cosine similarity / amplitude
  * envelope correlation): move .92/.93, capture .88/.79, castle .89/.69,
@@ -96,7 +99,7 @@ export const SOUND_DATA = {
     env: [0.092, 0.255, 0.456, 0.644, 0.809, 0.954, 1, 0.934, 0.849, 0.793, 0.743, 0.695, 0.664, 0.632, 0.612, 0.599, 0.579, 0.566, 0.563, 0.588, 0.575, 0.44, 0.538, 0.457, 0.527, 0.462, 0.479, 0.479, 0.502, 0.491, 0.476, 0.528, 0.535, 0.514, 0.539, 0.554, 0.541, 0.561, 0.55, 0.571, 0.573, 0.564, 0.574, 0.529, 0.528, 0.485, 0.429, 0.337, 0.081, 0.012, 0.015, 0.013, 0.017, 0.014, 0.01, 0.012, 0.009, 0.012, 0.013, 0.009, 0.006, 0.006, 0.01, 0.012, 0.014, 0.015, 0.011, 0.017, 0.013, 0.016, 0.01, 0.015, 0.008, 0.008, 0.008, 0.006, 0.008, 0.01, 0.01, 0.009, 0.013, 0.008, 0.011, 0.005, 0.008, 0.012, 0.006, 0.006, 0.011, 0.005, 0.003, 0, 0],
     modes: [{ f: 239, a: 1, tau: 0.3 }],
   },
-  mate: {
+  gameover: {
     gain: 0.4178,
     noise: { f: 909, gain: 0.15 },
     env: [0.964, 1, 0.322, 0.106, 0.017, 0.005, 0.004, 0.003, 0.001, 0.001, 0.002, 0.002, 0.002, 0.002, 0.003, 0.003, 0.001, 0.001, 0.001, 0.002, 0.001, 0.002, 0.002, 0.001, 0.001, 0.002, 0.002, 0.001, 0.001, 0.002, 0.001, 0.001, 0, 0.001, 0.002, 0.001, 0.001, 0, 0.002, 0.001, 0.001, 0.001, 0.002, 0.002, 0.001, 0.002, 0.001, 0.001, 0, 0.001, 0.001, 0.001, 0.002, 0.002, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.004, 0.169, 0.995, 0.956, 0.652, 0.288, 0.153, 0.054, 0.024, 0.009, 0.003, 0.002, 0.001],
@@ -105,4 +108,6 @@ export const SOUND_DATA = {
       { f: 75, a: 0.072, tau: 0.0316 },
     ],
   },
+  mate: {"gain":0.3297,"strikes":[{"at":0,"gain":0.5,"tauScale":0.7,"attack":0.006,"click":{"f":3531,"gain":0.25,"tau":0.01},"modes":[{"f":960,"a":1,"tau":0.0075},{"f":1376,"a":0.788,"tau":0.0063},{"f":663,"a":0.78,"tau":0.0061},{"f":329,"a":0.234,"tau":0.0184},{"f":2312,"a":0.206,"tau":0.005},{"f":6320,"a":0.192,"tau":0.005},{"f":4470,"a":0.173,"tau":0.005},{"f":6632,"a":0.155,"tau":0.005},{"f":3398,"a":0.148,"tau":0.0058},{"f":2007,"a":0.147,"tau":0.0053}]},{"at":0.046,"gain":0.94,"tauScale":1.2,"click":{"f":909,"gain":0.3,"tau":0.008},"modes":[{"f":625,"a":1,"tau":0.0056}]},{"at":0.176,"gain":1,"tauScale":1.2,"click":{"f":909,"gain":0.3,"tau":0.008},"modes":[{"f":625,"a":1,"tau":0.0056}]}]},
+  stalemate: {"gain":0.4517,"strikes":[{"at":0,"gain":0.7,"tauScale":0.7,"attack":0.001,"click":null,"modes":[{"f":921,"a":1,"tau":0.0067},{"f":494,"a":0.739,"tau":0.008},{"f":1289,"a":0.45,"tau":0.0068},{"f":1083,"a":0.356,"tau":0.0076},{"f":164,"a":0.335,"tau":0.0092},{"f":736,"a":0.313,"tau":0.0071},{"f":1431,"a":0.302,"tau":0.0066},{"f":347,"a":0.187,"tau":0.0081},{"f":1545,"a":0.167,"tau":0.0063},{"f":1827,"a":0.15,"tau":0.0064}]},{"at":0.058,"gain":0.89,"tauScale":1.2,"click":{"f":909,"gain":0.3,"tau":0.008},"modes":[{"f":625,"a":1,"tau":0.0071}]},{"at":0.184,"gain":1,"tauScale":1.2,"click":{"f":909,"gain":0.3,"tau":0.008},"modes":[{"f":625,"a":1,"tau":0.0071}]}]},
 };

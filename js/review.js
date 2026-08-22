@@ -16,7 +16,7 @@
  * tactics.js. This file only sequences them.
  */
 
-import { Chess } from './chess.js?v=202608220228';
+import { Chess } from './chess.js?v=202608220307';
 import {
   CLASSIFICATIONS,
   classifyMove,
@@ -30,10 +30,10 @@ import {
   phaseOf,
   nonPawnMaterial,
   MATE_CP,
-} from './classify.js?v=202608220228';
-import { identifyOpening, bookDepth, lookupPosition } from './openings.js?v=202608220228';
-import { explainMove } from './explain.js?v=202608220228';
-import { lineToSan } from './tactics.js?v=202608220228';
+} from './classify.js?v=202608220307';
+import { identifyOpening, bookDepth, lookupPosition } from './openings.js?v=202608220307';
+import { explainMove } from './explain.js?v=202608220307';
+import { lineToSan } from './tactics.js?v=202608220307';
 
 export { CLASSIFICATIONS, expectedScore, expectedFromCp };
 

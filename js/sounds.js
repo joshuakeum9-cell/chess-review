@@ -24,7 +24,7 @@
  * to load: the sound works offline and on first click.
  */
 
-import { SOUND_DATA } from './sound-data.js?v=202608220228';
+import { SOUND_DATA } from './sound-data.js?v=202608220307';
 
 const STORAGE_KEY = 'chessReview.sound';
 const ENV_STEP = 0.002; // envelope sampling period, seconds
@@ -154,12 +154,15 @@ export class SoundBoard {
     // Without the envelope lock the calibrated gain applies at the source.
     const srcGain = voice.env ? 1 : voice.gain;
 
+    // A strike may override the voice's mode set, click, attack and decay
+    // scale: the composite voices (mate, stalemate) are one kind of knock
+    // followed by another kind entirely.
     const strikes = voice.strikes || [{ at: 0, gain: 1 }];
-    const attack = voice.attack ?? 0.001;
     for (const st of strikes) {
       const ts = t0 + st.at;
+      const attack = st.attack ?? voice.attack ?? 0.001;
       const tauScale = st.tauScale ?? 1;
-      for (const m of voice.modes) {
+      for (const m of st.modes || voice.modes) {
         const osc = ctx.createOscillator();
         osc.frequency.value = m.f;
         const g = ctx.createGain();
@@ -171,17 +174,18 @@ export class SoundBoard {
         osc.stop(t0 + durSec + 0.1);
         stoppable.push(osc);
       }
-      if (voice.click && voice.click.gain > 0) {
+      const click = st.click ?? voice.click;
+      if (click && click.gain > 0) {
         const src = ctx.createBufferSource();
         src.buffer = this.noiseBuffer;
         const bp = ctx.createBiquadFilter();
         bp.type = 'bandpass';
-        bp.frequency.value = voice.click.f;
+        bp.frequency.value = click.f;
         bp.Q.value = 0.7;
         const g = ctx.createGain();
         g.gain.setValueAtTime(0, ts);
-        g.gain.linearRampToValueAtTime(voice.click.gain * st.gain * srcGain, ts + attack);
-        g.gain.setTargetAtTime(0, ts + attack, voice.click.tau);
+        g.gain.linearRampToValueAtTime(click.gain * st.gain * srcGain, ts + attack);
+        g.gain.setTargetAtTime(0, ts + attack, click.tau);
         src.connect(bp).connect(g).connect(dest);
         src.start(ts, 0.01 * (1 + strikes.indexOf(st)));
         src.stop(ts + 0.12);

@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608220228';
-import { EnginePool } from './engine.js?v=202608220228';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608220307';
+import { EnginePool } from './engine.js?v=202608220307';
 import {
   analysePositions,
   analysePosition,
@@ -11,10 +11,10 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608220228';
-import { BoardView } from './board.js?v=202608220228';
-import { chipHtml, classColor } from './icons.js?v=202608220228';
-import { SoundBoard } from './sounds.js?v=202608220228';
+} from './review.js?v=202608220307';
+import { BoardView } from './board.js?v=202608220307';
+import { chipHtml, classColor } from './icons.js?v=202608220307';
+import { SoundBoard } from './sounds.js?v=202608220307';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -966,9 +966,35 @@ function goToPly(ply, opts = {}) {
   $('variationPanel').hidden = true;
   state.ply = Math.max(0, Math.min(state.game.moves.length, ply));
   renderPosition();
+  if (opts.silent || state.ply === 0) return;
+
   // The move that produced the position now on the board, so stepping through
-  // a game sounds like playing it.
-  if (!opts.silent && state.ply > 0) sounds.playMove(state.game.moves[state.ply - 1]);
+  // a game sounds like playing it. Landing on the final position of a
+  // finished game gets the ending itself, the way it sounded live: the mate
+  // and stalemate voices already carry the game-end knock-knock, and every
+  // other conclusion (resignation, timeout, draw) gets the game-over sound
+  // right after the last move's own click.
+  const move = state.game.moves[state.ply - 1];
+  const atEnd = state.ply === state.game.moves.length;
+  const result = (state.game.headers.Result || '').trim();
+  const finished = result === '1-0' || result === '0-1' || result === '1/2-1/2';
+
+  if (atEnd && finished && !move.san.includes('#')) {
+    if (new Chess(move.fenAfter).isStalemate()) {
+      sounds.play('stalemate');
+    } else {
+      sounds.playMove(move);
+      clearTimeout(state._endSoundTimer);
+      state._endSoundTimer = setTimeout(() => {
+        // Only if we are still sitting on that final position.
+        if (state.game && !state.explore && state.ply === state.game.moves.length) {
+          sounds.play('gameover');
+        }
+      }, 220);
+    }
+    return;
+  }
+  sounds.playMove(move);
 }
 
 function updateEvalBarFromPly(ply) {
@@ -1056,7 +1082,8 @@ async function playExploratoryMove(chess, move) {
   ex.reviews.push(null);
   ex.after = null;
 
-  sounds.playMove(record);
+  if (working.isStalemate()) sounds.play('stalemate');
+  else sounds.playMove(record);
   $('exitExploreBtn').hidden = false;
   board.setSelection(null);
   renderPosition();
