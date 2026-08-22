@@ -3,8 +3,8 @@
  * highlights (right-click, chess.com conventions), and the classification
  * badge that pops on the square you just moved to. */
 
-import { Chess } from './chess.js?v=202608220307';
-import { chipSvg, classColor, resultBadgeSvg } from './icons.js?v=202608220307';
+import { Chess } from './chess.js?v=202608220504';
+import { chipSvg, classColor, resultBadgeSvg } from './icons.js?v=202608220504';
 
 const SIZE = 100; // one square in SVG user units
 const FILES = 'abcdefgh';

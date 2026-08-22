@@ -1,33 +1,40 @@
-/* sounds.js - move sounds synthesized from measurements of chess.com's
- * defaults. No audio files ship at all.
+/* sounds.js - the app's sound board.
  *
- * Each of chess.com's default sounds was analysed with an FFT harness:
- * resonant modes (exact frequencies, relative amplitudes, per-mode decay
- * rates), the amplitude envelope sampled every 2 ms, the broadband noise
- * component, and the peak level. Every voice here is rebuilt from that
- * measurement with plain oscillators and filtered noise driven through the
- * measured envelope - an independent imitation, which copyright law
- * expressly permits for sound recordings; only sampling the actual file is
- * protected, and none is. The measured tables live in sound-data.js.
+ * The six core sounds (capture, castle, check, checkmate, game_over,
+ * stalemate) are the actual chess.com sound effects, shipped as mp3 files
+ * in assets/sounds/ at Joshua's direction. They are the property of
+ * Chess.com, used here in a free educational project, and will be removed
+ * on request (also noted in the README credits).
  *
- * Fidelity, scored as log-spectral cosine similarity and envelope
- * correlation against the references through this exact code path:
- * move .92/.93, capture .92/.79, castle .89/.83, check .88/.70,
- * promote .88/.82, illegal .89/.60, mate .89/.99, ready .81/.96.
- * Every earlier approach scored worse: a hand-rolled synth missed the
- * spectrum entirely, and a re-filtered CC0 recording managed .89/.94 on
- * the move but as low as .67/.40 on castle. The envelope lock is what
- * makes multi-impact sounds (castle's two knocks, mate's knock-knock)
- * come out with their real timing.
+ * The plain move sound is not among the files, but stalemate.mp3 opens
+ * with exactly the move knock (measured: the first impact ends well before
+ * the game-over knock-knock that follows at 58 ms), so the move sound is
+ * sliced out of it at decode time rather than shipping a seventh file.
  *
- * Being purely synthetic, this needs no fetch, no decode, and cannot fail
- * to load: the sound works offline and on first click.
+ * Everything else stays synthesized from the measured tables in
+ * sound-data.js: promote, illegal and ready have no supplied file, and
+ * every sampled voice keeps its synthesized model as a fallback, so the
+ * app is never silent while files load or if a fetch fails.
  */
 
-import { SOUND_DATA } from './sound-data.js?v=202608220307';
+import { SOUND_DATA } from './sound-data.js?v=202608220504';
 
 const STORAGE_KEY = 'chessReview.sound';
 const ENV_STEP = 0.002; // envelope sampling period, seconds
+
+/* The real recordings. The bump script restamps the ?v= cache-busters. */
+const SAMPLE_FILES = {
+  capture: 'assets/sounds/capture.mp3?v=202608220504',
+  castle: 'assets/sounds/castle.mp3?v=202608220504',
+  check: 'assets/sounds/check.mp3?v=202608220504',
+  checkmate: 'assets/sounds/checkmate.mp3?v=202608220504',
+  game_over: 'assets/sounds/game_over.mp3?v=202608220504',
+  stalemate: 'assets/sounds/stalemate.mp3?v=202608220504',
+};
+
+/* How much of stalemate.mp3 is the move knock. */
+const MOVE_SLICE_SEC = 0.052;
+const MOVE_FADE_SEC = 0.008;
 
 export class SoundBoard {
   constructor() {
@@ -35,6 +42,8 @@ export class SoundBoard {
     this.ctx = null;
     this.master = null;
     this.noiseBuffer = null;
+    this.buffers = {};
+    this._loading = null;
     this._active = [];
   }
 
@@ -59,22 +68,51 @@ export class SoundBoard {
         return null;
       }
       this.master = this.ctx.createGain();
-      // Unity: per-voice gains are calibrated to the reference peak levels,
-      // and voice stealing already prevents overlapping voices from summing.
       this.master.gain.value = 1.0;
       this.master.connect(this.ctx.destination);
       this.noiseBuffer = makeNoise(this.ctx);
+      this._loadSamples();
     }
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
     return this.ctx;
+  }
+
+  _loadSamples() {
+    if (this._loading) return this._loading;
+    this._loading = Promise.all(
+      Object.entries(SAMPLE_FILES).map(([kind, url]) =>
+        fetch(url)
+          .then((res) => {
+            if (!res.ok) throw new Error(`${kind} ${res.status}`);
+            return res.arrayBuffer();
+          })
+          .then((bytes) => this.ctx.decodeAudioData(bytes))
+          .then((buf) => {
+            // The files carry 0.4-0.6 s of leading silence from their
+            // encoding; playing from 0 would lag every click by that much.
+            this.buffers[kind] = { buffer: buf, offset: onsetOf(buf) };
+            if (kind === 'stalemate') {
+              const move = sliceMove(this.ctx, buf);
+              if (move) this.buffers.move = { buffer: move, offset: 0 };
+            }
+          })
+          .catch(() => {
+            /* the synthesized fallback covers this voice */
+          })
+      )
+    );
+    return this._loading;
   }
 
   play(kind) {
     if (!this.enabled) return;
     const ctx = this.unlock();
     if (!ctx) return;
-    const voice = SOUND_DATA[kind] || SOUND_DATA.move;
-    this._render(ctx.currentTime + 0.005, voice);
+    const t = ctx.currentTime + 0.005;
+    const sample = this.buffers[kind];
+    if (sample) return this._playBuffer(t, sample.buffer, sample.offset);
+    const voice = SOUND_DATA[kind];
+    if (voice) this._render(t, voice);
   }
 
   /* Picks the right sound for a move from its SAN, which every move object
@@ -82,7 +120,7 @@ export class SoundBoard {
   playMove(move) {
     if (!move) return;
     const san = move.san || '';
-    if (san.includes('#')) return this.play('mate');
+    if (san.includes('#')) return this.play('checkmate');
     if (san.includes('+')) return this.play('check');
     if (san.includes('=')) return this.play('promote');
     if (san.startsWith('O-O')) return this.play('castle');
@@ -94,8 +132,7 @@ export class SoundBoard {
    * full-level voices sum past 1.0 and clip. Rather than compress the
    * output (which smears the transient that makes a click a click), the
    * previous voice is cut when a new one starts, the way a piece landing
-   * interrupts the last one on a real board. Each voice hangs off its own
-   * cut gain so the envelope curve itself is never cancelled mid-flight. */
+   * interrupts the last one on a real board. */
   _cutActive(t) {
     for (const voice of this._active) {
       try {
@@ -109,22 +146,25 @@ export class SoundBoard {
     this._active = [];
   }
 
-  /* Build one voice. Two source models feed the same output chain:
-   *
-   * - Continuous bank (default): every mode excited once, the whole sum
-   *   driven through the reference's measured amplitude envelope. Right for
-   *   single-impact sounds, whose character is one strike ringing down.
-   * - Strikes (`voice.strikes`): the modes are re-excited at each measured
-   *   impact time with per-strike gain, a per-strike decay scale, and a
-   *   short band-passed noise burst for the contact click. Right for
-   *   capture and castle, which are several distinct wooden contacts: a
-   *   continuous bank there rings like an organ chord through the quiet
-   *   stretches, which is exactly what "sounds weird" named. Capture keeps
-   *   the envelope lock on top (its impacts overlap, so the measured curve
-   *   still improves the timing); castle skips it, because multiplying the
-   *   already-decaying knocks by an envelope that encodes the same decays
-   *   truncates the ring twice.
-   */
+  /* One of the real recordings, straight through, from its onset. */
+  _playBuffer(t0, buffer, offset = 0) {
+    const ctx = this.ctx;
+    this._cutActive(t0);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const cut = ctx.createGain();
+    src.connect(cut).connect(this.master);
+    src.start(t0, offset);
+    const record = { cut, stoppable: [src] };
+    this._active.push(record);
+    src.onended = () => {
+      this._active = this._active.filter((v) => v !== record);
+    };
+  }
+
+  /* Synthesized voice (promote, illegal, ready, and fallbacks): oscillators
+   * at measured mode frequencies, either as one bank through the measured
+   * envelope or as discrete strikes; see sound-data.js for the tables. */
   _render(t0, voice) {
     const ctx = this.ctx;
     this._cutActive(t0);
@@ -137,7 +177,6 @@ export class SoundBoard {
     let durSec;
     if (voice.env) {
       durSec = voice.env.length * ENV_STEP;
-      // measured envelope as a gain curve, scaled by the calibrated gain
       const envGain = ctx.createGain();
       const curve = new Float32Array(voice.env.length + 1);
       for (let i = 0; i < voice.env.length; i++) curve[i] = voice.env[i] * voice.gain;
@@ -151,12 +190,8 @@ export class SoundBoard {
       durSec = last.at + 0.35;
     }
 
-    // Without the envelope lock the calibrated gain applies at the source.
     const srcGain = voice.env ? 1 : voice.gain;
 
-    // A strike may override the voice's mode set, click, attack and decay
-    // scale: the composite voices (mate, stalemate) are one kind of knock
-    // followed by another kind entirely.
     const strikes = voice.strikes || [{ at: 0, gain: 1 }];
     for (const st of strikes) {
       const ts = t0 + st.at;
@@ -191,22 +226,21 @@ export class SoundBoard {
         src.stop(ts + 0.12);
         stoppable.push(src);
       }
-    }
-
-    if (voice.noise) {
-      const src = ctx.createBufferSource();
-      src.buffer = this.noiseBuffer;
-      src.loop = true;
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = voice.noise.f;
-      bp.Q.value = 0.6;
-      const g = ctx.createGain();
-      g.gain.value = voice.noise.gain * srcGain;
-      src.connect(bp).connect(g).connect(dest);
-      src.start(t0);
-      src.stop(t0 + durSec + 0.02);
-      stoppable.push(src);
+      if (voice.noise) {
+        const src = ctx.createBufferSource();
+        src.buffer = this.noiseBuffer;
+        src.loop = true;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = voice.noise.f;
+        bp.Q.value = 0.6;
+        const g = ctx.createGain();
+        g.gain.value = voice.noise.gain * srcGain;
+        src.connect(bp).connect(g).connect(dest);
+        src.start(t0);
+        src.stop(t0 + durSec + 0.02);
+        stoppable.push(src);
+      }
     }
 
     const record = { cut, stoppable };
@@ -215,6 +249,41 @@ export class SoundBoard {
       this._active = this._active.filter((v) => v !== record);
     };
   }
+}
+
+/* Cut the opening move knock out of the stalemate recording: from its
+ * onset to just before the game-over knocks, with a short fade so the cut
+ * is silent. */
+/* First sample carrying real signal, backed off 2 ms so no attack clips. */
+function onsetOf(buffer) {
+  const d = buffer.getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  if (peak < 1e-6) return 0;
+  for (let i = 0; i < d.length; i++) {
+    if (Math.abs(d[i]) > peak * 0.02) {
+      return Math.max(0, (i - Math.round(buffer.sampleRate * 0.002)) / buffer.sampleRate);
+    }
+  }
+  return 0;
+}
+
+function sliceMove(ctx, buffer) {
+  const d = buffer.getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  if (peak < 1e-6) return null;
+  const onset = Math.round(onsetOf(buffer) * buffer.sampleRate);
+  const frames = Math.round(buffer.sampleRate * MOVE_SLICE_SEC);
+  const fade = Math.round(buffer.sampleRate * MOVE_FADE_SEC);
+  const out = ctx.createBuffer(1, frames, buffer.sampleRate);
+  const o = out.getChannelData(0);
+  for (let i = 0; i < frames; i++) {
+    let v = d[onset + i] || 0;
+    if (i > frames - fade) v *= (frames - i) / fade;
+    o[i] = v;
+  }
+  return out;
 }
 
 function makeNoise(ctx) {

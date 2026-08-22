@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608220307';
-import { EnginePool } from './engine.js?v=202608220307';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608220504';
+import { EnginePool } from './engine.js?v=202608220504';
 import {
   analysePositions,
   analysePosition,
@@ -11,10 +11,10 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608220307';
-import { BoardView } from './board.js?v=202608220307';
-import { chipHtml, classColor } from './icons.js?v=202608220307';
-import { SoundBoard } from './sounds.js?v=202608220307';
+} from './review.js?v=202608220504';
+import { BoardView } from './board.js?v=202608220504';
+import { chipHtml, classColor } from './icons.js?v=202608220504';
+import { SoundBoard } from './sounds.js?v=202608220504';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -988,7 +988,7 @@ function goToPly(ply, opts = {}) {
       state._endSoundTimer = setTimeout(() => {
         // Only if we are still sitting on that final position.
         if (state.game && !state.explore && state.ply === state.game.moves.length) {
-          sounds.play('gameover');
+          sounds.play('game_over');
         }
       }, 220);
     }

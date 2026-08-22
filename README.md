@@ -327,14 +327,14 @@ machine reproduces the same review exactly.
   proprietary and is deliberately not copied; the board colours, arrow tones
   and badge palette match chess.com's default theme, which are plain colour
   values.
-- Move sounds: fully synthesized, no audio files at all. chess.com's default
-  sounds were measured with an FFT harness (resonant mode frequencies,
-  amplitudes and decay rates, the 2 ms amplitude envelope, noise content and
-  peak level; tables in `js/sound-data.js`) and each voice is rebuilt from
-  plain oscillators and filtered noise driven through the measured envelope.
-  That is an independent imitation, which copyright law expressly permits for
-  sound recordings - only sampling the actual file is protected, and none is
-  shipped or sampled.
+- Sound effects: the capture, castle, check, checkmate, game-over and
+  stalemate sounds in `assets/sounds/` are Chess.com's sound effects, the
+  property of Chess.com, included in this free educational project for
+  fidelity to the experience it studies; they will be removed immediately on
+  request. The plain move sound is sliced from the stalemate recording at
+  runtime. The promote, illegal and review-ready sounds, and a full fallback
+  set used while files load, are synthesized in the browser from acoustic
+  measurements (`js/sound-data.js`).
 - Openings: the Lichess ECO dataset (CC0).
 - Engine: Stockfish (GPL-3), see `vendor/LICENSE-NOTE.md`.
 
