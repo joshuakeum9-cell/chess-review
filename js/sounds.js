@@ -24,7 +24,7 @@
  * to load: the sound works offline and on first click.
  */
 
-import { SOUND_DATA } from './sound-data.js?v=202608212211';
+import { SOUND_DATA } from './sound-data.js?v=202608220200';
 
 const STORAGE_KEY = 'chessReview.sound';
 const ENV_STEP = 0.002; // envelope sampling period, seconds

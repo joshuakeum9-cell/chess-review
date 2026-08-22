@@ -104,3 +104,80 @@ export function chipSvg(document, type, cx, cy, r) {
 export function classColor(type) {
   return (CLASS_STYLE[type] || {}).color || '#9c9c9c';
 }
+
+/* ------------------------------------------------------------------ */
+/* game-over badges: the icons that land on the two kings when the     */
+/* game ends. Semantics and circle colors follow chess.com's live      */
+/* boards (winner crown on green #83B84F, loss reasons on red #E02828, */
+/* draws on gray #555351); the glyphs are original drawings.           */
+/* ------------------------------------------------------------------ */
+
+export const RESULT_STYLE = {
+  winner: {
+    color: '#83b84f',
+    // three-point crown
+    path: 'M3.8 7.6l4.1 3 3.4-5.6a.8.8 0 0 1 1.4 0l3.4 5.6 4.1-3a.7.7 0 0 1 1.1.7l-1.5 8.4c-2.3.9-4.9 1.35-7.8 1.35s-5.5-.45-7.8-1.35L2.7 8.3a.7.7 0 0 1 1.1-.7z',
+  },
+  mate: {
+    color: '#e02828',
+    // eight-point burst
+    path: 'M12 2.4l1.88 5.07 4.91-2.26-2.26 4.91L21.6 12l-5.07 1.88 2.26 4.91-4.91-2.26L12 21.6l-1.88-5.07-4.91 2.26 2.26-4.91L2.4 12l5.07-1.88-2.26-4.91 4.91 2.26z',
+  },
+  resign: {
+    color: '#e02828',
+    // waving white flag on a leaning pole
+    path: 'M8.05 3.4l1.9-.5 4.05 15.2-1.9.5zM10.1 5.3c2.3-1.6 4.5.9 7-.7l1.75 6.55c-2.5 1.6-4.7-.9-7 .7z',
+  },
+  timeout: {
+    color: '#e02828',
+    // clock: ring plus hands at 12 and half past 4
+    path: 'M12 3.2a8.8 8.8 0 1 0 0 17.6 8.8 8.8 0 0 0 0-17.6zm0 2.3a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm-.95 1.6h1.9v5.4h-1.9zm1.6 4.3l3.35 2.75-1.2 1.45-3.35-2.75z',
+    evenodd: true,
+  },
+  draw: { color: '#555351', text: '½' },
+  abandon: {
+    color: '#e02828',
+    path: 'M8.05 3.4l1.9-.5 4.05 15.2-1.9.5zM10.1 5.3c2.3-1.6 4.5.9 7-.7l1.75 6.55c-2.5 1.6-4.7-.9-7 .7z',
+  },
+};
+
+/* Result badge drawn into an existing SVG (the board). Same frame as the
+ * classification chips so the two systems read as one language. */
+export function resultBadgeSvg(document, kind, cx, cy, r) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const style = RESULT_STYLE[kind];
+  if (!style) return null;
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('class', 'badge-pop');
+
+  const circle = document.createElementNS(NS, 'circle');
+  circle.setAttribute('cx', cx);
+  circle.setAttribute('cy', cy);
+  circle.setAttribute('r', r);
+  circle.setAttribute('fill', style.color);
+  circle.setAttribute('stroke', '#ffffff');
+  circle.setAttribute('stroke-width', r * 0.14);
+  g.append(circle);
+
+  if (style.path) {
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', style.path);
+    path.setAttribute('fill', '#ffffff');
+    if (style.evenodd) path.setAttribute('fill-rule', 'evenodd');
+    const s = (r * 2) / 24;
+    path.setAttribute('transform', `translate(${cx - r},${cy - r}) scale(${s})`);
+    g.append(path);
+  } else {
+    const text = document.createElementNS(NS, 'text');
+    text.setAttribute('x', cx);
+    text.setAttribute('y', cy + r * 0.06);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('fill', '#ffffff');
+    text.setAttribute('font-size', r * 1.2);
+    text.setAttribute('font-weight', '800');
+    text.textContent = style.text;
+    g.append(text);
+  }
+  return g;
+}

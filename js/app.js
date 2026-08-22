@@ -1,7 +1,7 @@
 /* app.js — wires the parser, engine, review logic and board together. */
 
-import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608212211';
-import { EnginePool } from './engine.js?v=202608212211';
+import { Chess, parsePgn, splitPgnGames } from './chess.js?v=202608220200';
+import { EnginePool } from './engine.js?v=202608220200';
 import {
   analysePositions,
   analysePosition,
@@ -11,10 +11,10 @@ import {
   CLASSIFICATIONS,
   formatEval,
   expectedFromCp,
-} from './review.js?v=202608212211';
-import { BoardView } from './board.js?v=202608212211';
-import { chipHtml, classColor } from './icons.js?v=202608212211';
-import { SoundBoard } from './sounds.js?v=202608212211';
+} from './review.js?v=202608220200';
+import { BoardView } from './board.js?v=202608220200';
+import { chipHtml, classColor } from './icons.js?v=202608220200';
+import { SoundBoard } from './sounds.js?v=202608220200';
 
 const SAMPLE_PGN = `[Event "Immortal Game"]
 [Site "London ENG"]
@@ -380,12 +380,29 @@ function renderPosition() {
     const last = ex.moves[ex.moves.length - 1];
     const review = ex.reviews[ex.reviews.length - 1];
 
+    // A line you invented can end the game too; give it the same icons.
+    let exploreBadges = null;
+    if (chess.isCheckmate()) {
+      const loser = chess.turn;
+      const winner = loser === 'w' ? 'b' : 'w';
+      exploreBadges = [
+        { square: kingSquare(chess, winner), kind: 'winner' },
+        { square: kingSquare(chess, loser), kind: 'mate' },
+      ];
+    } else if (chess.isGameOver()) {
+      exploreBadges = [
+        { square: kingSquare(chess, 'w'), kind: 'draw' },
+        { square: kingSquare(chess, 'b'), kind: 'draw' },
+      ];
+    }
+
     board.setPosition(chess.fen(), {
       lastMove: last ? { from: last.from, to: last.to } : null,
       // The verdict badge lands on the square you moved to, exactly as it
       // does for a move from the game.
       classification: review ? review.classification : null,
       checkSquare: checkSquareFor(chess),
+      resultBadges: exploreBadges,
     });
 
     // The engine's best move in the line you built, which is the whole point
@@ -412,6 +429,7 @@ function renderPosition() {
     lastMove: move ? { from: move.from, to: move.to } : null,
     classification: reviewed ? reviewed.classification : null,
     checkSquare: checkSquareFor(chess),
+    resultBadges: resultBadgesFor(chess),
   });
 
   if (state.pinnedArrows) {
@@ -527,6 +545,42 @@ function checkSquareFor(chess) {
   if (!chess.inCheck()) return null;
   const kingSq = chess.kings[chess.turn];
   return 'abcdefgh'[kingSq & 15] + (8 - (kingSq >> 4));
+}
+
+function kingSquare(chess, color) {
+  const sq = chess.kings[color];
+  return 'abcdefgh'[sq & 15] + (8 - (sq >> 4));
+}
+
+/* Game-over icons for the two kings, chess.com style: the winner's king
+ * gets the crown, the loser's the reason it ended (burst for checkmate,
+ * flag for resignation, clock for timeout), both get the half on a draw.
+ * Shown only on the final position of a finished game. */
+function resultBadgesFor(chess) {
+  if (!state.game || state.ply !== state.game.moves.length) return null;
+  const result = (state.game.headers.Result || '').trim();
+  if (result !== '1-0' && result !== '0-1' && result !== '1/2-1/2') return null;
+
+  if (result === '1/2-1/2') {
+    return [
+      { square: kingSquare(chess, 'w'), kind: 'draw' },
+      { square: kingSquare(chess, 'b'), kind: 'draw' },
+    ];
+  }
+
+  const winner = result === '1-0' ? 'w' : 'b';
+  const loser = winner === 'w' ? 'b' : 'w';
+  const last = state.game.moves[state.game.moves.length - 1];
+  const term = (state.game.headers.Termination || '').toLowerCase();
+  let reason = 'resign';
+  if (last && last.san.includes('#')) reason = 'mate';
+  else if (/time|forfeit/.test(term)) reason = 'timeout';
+  else if (/abandon/.test(term)) reason = 'abandon';
+
+  return [
+    { square: kingSquare(chess, winner), kind: 'winner' },
+    { square: kingSquare(chess, loser), kind: reason },
+  ];
 }
 
 function updateEvalBar(cpWhite, mateWhite) {

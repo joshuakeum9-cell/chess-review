@@ -3,8 +3,8 @@
  * highlights (right-click, chess.com conventions), and the classification
  * badge that pops on the square you just moved to. */
 
-import { Chess } from './chess.js?v=202608212211';
-import { chipSvg, classColor } from './icons.js?v=202608212211';
+import { Chess } from './chess.js?v=202608220200';
+import { chipSvg, classColor, resultBadgeSvg } from './icons.js?v=202608220200';
 
 const SIZE = 100; // one square in SVG user units
 const FILES = 'abcdefgh';
@@ -54,6 +54,7 @@ export class BoardView {
     this.position = new Chess();
     this.lastMove = null;
     this.badge = null;
+    this.resultBadges = [];
     this.arrows = [];
     this.selected = null;
     this.checkSquare = null;
@@ -306,11 +307,17 @@ export class BoardView {
     this.render({ animate: false });
   }
 
-  setPosition(fen, { lastMove = null, classification = null, checkSquare = null } = {}) {
+  setPosition(
+    fen,
+    { lastMove = null, classification = null, checkSquare = null, resultBadges = null } = {}
+  ) {
     this._previousBoard = this.position ? this.position.boardArray() : null;
     this.position = new Chess(fen);
     this.lastMove = lastMove;
     this.badge = classification && lastMove ? { square: lastMove.to, classification } : null;
+    // Game-over icons on the kings (winner crown, resignation flag...).
+    // They own their square: a classification chip on the same square yields.
+    this.resultBadges = resultBadges || [];
     this.checkSquare = checkSquare;
     this.selected = null;
     this.render({ animate: true });
@@ -612,9 +619,16 @@ export class BoardView {
 
   _renderBadge() {
     this.badgeLayer.innerHTML = '';
-    if (!this.badge) return;
-    const { x, y } = this._xy(this.badge.square);
-    const group = chipSvg(document, this.badge.classification, x + SIZE - 12, y + 12, 21);
-    if (group) this.badgeLayer.append(group);
+    const taken = new Set(this.resultBadges.map((b) => b.square));
+    if (this.badge && !taken.has(this.badge.square)) {
+      const { x, y } = this._xy(this.badge.square);
+      const group = chipSvg(document, this.badge.classification, x + SIZE - 12, y + 12, 21);
+      if (group) this.badgeLayer.append(group);
+    }
+    for (const b of this.resultBadges) {
+      const { x, y } = this._xy(b.square);
+      const group = resultBadgeSvg(document, b.kind, x + SIZE - 12, y + 12, 21);
+      if (group) this.badgeLayer.append(group);
+    }
   }
 }
