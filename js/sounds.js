@@ -24,7 +24,7 @@
  * to load: the sound works offline and on first click.
  */
 
-import { SOUND_DATA } from './sound-data.js?v=202608220200';
+import { SOUND_DATA } from './sound-data.js?v=202608220228';
 
 const STORAGE_KEY = 'chessReview.sound';
 const ENV_STEP = 0.002; // envelope sampling period, seconds
@@ -109,37 +109,84 @@ export class SoundBoard {
     this._active = [];
   }
 
-  /* Build one voice: oscillators at the measured modes plus a filtered
-   * noise bed, all driven through the reference's own amplitude envelope. */
+  /* Build one voice. Two source models feed the same output chain:
+   *
+   * - Continuous bank (default): every mode excited once, the whole sum
+   *   driven through the reference's measured amplitude envelope. Right for
+   *   single-impact sounds, whose character is one strike ringing down.
+   * - Strikes (`voice.strikes`): the modes are re-excited at each measured
+   *   impact time with per-strike gain, a per-strike decay scale, and a
+   *   short band-passed noise burst for the contact click. Right for
+   *   capture and castle, which are several distinct wooden contacts: a
+   *   continuous bank there rings like an organ chord through the quiet
+   *   stretches, which is exactly what "sounds weird" named. Capture keeps
+   *   the envelope lock on top (its impacts overlap, so the measured curve
+   *   still improves the timing); castle skips it, because multiplying the
+   *   already-decaying knocks by an envelope that encodes the same decays
+   *   truncates the ring twice.
+   */
   _render(t0, voice) {
     const ctx = this.ctx;
     this._cutActive(t0);
 
-    const durSec = voice.env.length * ENV_STEP;
-
-    // measured envelope as a gain curve, scaled by the calibrated gain
-    const envGain = ctx.createGain();
-    const curve = new Float32Array(voice.env.length + 1);
-    for (let i = 0; i < voice.env.length; i++) curve[i] = voice.env[i] * voice.gain;
-    curve[voice.env.length] = 0;
-    envGain.gain.setValueAtTime(0, t0 - 0.001);
-    envGain.gain.setValueCurveAtTime(curve, t0, durSec);
-
-    const cut = ctx.createGain();
-    envGain.connect(cut).connect(this.master);
-
     const stoppable = [];
-    for (const m of voice.modes) {
-      const osc = ctx.createOscillator();
-      osc.frequency.value = m.f;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(m.a, t0 + 0.001);
-      g.gain.setTargetAtTime(0, t0 + 0.001, m.tau);
-      osc.connect(g).connect(envGain);
-      osc.start(t0);
-      osc.stop(t0 + durSec + 0.05);
-      stoppable.push(osc);
+    const cut = ctx.createGain();
+    cut.connect(this.master);
+
+    let dest = cut;
+    let durSec;
+    if (voice.env) {
+      durSec = voice.env.length * ENV_STEP;
+      // measured envelope as a gain curve, scaled by the calibrated gain
+      const envGain = ctx.createGain();
+      const curve = new Float32Array(voice.env.length + 1);
+      for (let i = 0; i < voice.env.length; i++) curve[i] = voice.env[i] * voice.gain;
+      curve[voice.env.length] = 0;
+      envGain.gain.setValueAtTime(0, t0 - 0.001);
+      envGain.gain.setValueCurveAtTime(curve, t0, durSec);
+      envGain.connect(cut);
+      dest = envGain;
+    } else {
+      const last = voice.strikes[voice.strikes.length - 1];
+      durSec = last.at + 0.35;
+    }
+
+    // Without the envelope lock the calibrated gain applies at the source.
+    const srcGain = voice.env ? 1 : voice.gain;
+
+    const strikes = voice.strikes || [{ at: 0, gain: 1 }];
+    const attack = voice.attack ?? 0.001;
+    for (const st of strikes) {
+      const ts = t0 + st.at;
+      const tauScale = st.tauScale ?? 1;
+      for (const m of voice.modes) {
+        const osc = ctx.createOscillator();
+        osc.frequency.value = m.f;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, ts);
+        g.gain.linearRampToValueAtTime(m.a * st.gain * srcGain, ts + attack);
+        g.gain.setTargetAtTime(0, ts + attack, m.tau * tauScale);
+        osc.connect(g).connect(dest);
+        osc.start(ts);
+        osc.stop(t0 + durSec + 0.1);
+        stoppable.push(osc);
+      }
+      if (voice.click && voice.click.gain > 0) {
+        const src = ctx.createBufferSource();
+        src.buffer = this.noiseBuffer;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = voice.click.f;
+        bp.Q.value = 0.7;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, ts);
+        g.gain.linearRampToValueAtTime(voice.click.gain * st.gain * srcGain, ts + attack);
+        g.gain.setTargetAtTime(0, ts + attack, voice.click.tau);
+        src.connect(bp).connect(g).connect(dest);
+        src.start(ts, 0.01 * (1 + strikes.indexOf(st)));
+        src.stop(ts + 0.12);
+        stoppable.push(src);
+      }
     }
 
     if (voice.noise) {
@@ -151,8 +198,8 @@ export class SoundBoard {
       bp.frequency.value = voice.noise.f;
       bp.Q.value = 0.6;
       const g = ctx.createGain();
-      g.gain.value = voice.noise.gain;
-      src.connect(bp).connect(g).connect(envGain);
+      g.gain.value = voice.noise.gain * srcGain;
+      src.connect(bp).connect(g).connect(dest);
       src.start(t0);
       src.stop(t0 + durSec + 0.02);
       stoppable.push(src);
